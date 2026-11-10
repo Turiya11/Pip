@@ -1,0 +1,38 @@
+<!--
+  Small control bar in front of Pip's feet. Authored at 10x, placed at scale 0.1.
+-->
+<style>
+  .bar {
+    flex-direction: row;
+    gap: 10px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    background-color: #1a1333;
+    border-color: #6d5bd0;
+    border-width: 2px;
+    border-radius: 36px;
+  }
+  .btn {
+    height: 54px;
+    padding-left: 22px;
+    padding-right: 22px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 27px;
+    background-color: #2a2150;
+    cursor: pointer;
+  }
+  .btn-label {
+    color: #f5f4ff;
+    font-size: 20px;
+    font-weight: 600;
+  }
+</style>
+<div class="bar">
+  <div id="hud-exit" class="btn"><span class="btn-label">Exit</span></div>
+  <div id="hud-next" class="btn"><span id="hud-next-label" class="btn-label">Next 3</span></div>
+  <div id="hud-smaller" class="btn"><span class="btn-label">-</span></div>
+  <div id="hud-bigger" class="btn"><span class="btn-label">+</span></div>
+</div>

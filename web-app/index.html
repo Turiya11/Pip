@@ -1,0 +1,3708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0B0A1A">
+  <title>Pip's Thought Orbit</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Three.js Module Importmap -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    /* Pip design tokens (Figma: Sem 7 UX Research project › hi fi screens) */
+    :root {
+      --deep-space: #0B0A1A;
+      --ink: #0F0D1F;
+      --panel: rgba(26, 19, 51, 0.85);
+      --field: rgba(15, 13, 31, 0.9);
+      --panel-border: rgba(183, 148, 246, 0.3);
+      --primary: #7C3AED;
+      --teal: #00D1C1;
+      --aqua: #4EE6D6;
+      --light-purple: #B794F6;
+      --muted-purple: #6B5B8F;
+      --neon-pink: #FF7EDB;
+      --starlight: #E9E7FF;
+      --text: #F5F4FF;
+      --surface: #C9C6E3;
+      --slate: #8A86A8;
+      --rose: #FF6B8A;
+      --amber: #FBBF24;
+      --grad-button: linear-gradient(90deg, #7C3AED 0%, #00D1C1 100%);
+      --glow-primary: drop-shadow(0 0 11px rgba(124, 58, 237, 0.55));
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      color: var(--text);
+      font-family: "Montserrat", system-ui, -apple-system, sans-serif;
+      background-color: var(--deep-space);
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* The Figma space backdrop lives on its own layer so it is reliably restored after AR,
+       even if the AR browser left the page itself transparent. */
+    #app-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-color: var(--deep-space);
+      background-image:
+        url("assets/starfield.svg"),
+        radial-gradient(70% 45% at 85% 0%, rgba(124, 58, 237, 0.55) 0%, rgba(124, 58, 237, 0) 70%),
+        radial-gradient(60% 40% at 0% 100%, rgba(255, 126, 219, 0.18) 0%, rgba(255, 126, 219, 0) 70%),
+        radial-gradient(80% 50% at 50% 55%, rgba(43, 37, 71, 0.6) 0%, rgba(11, 10, 26, 0) 70%);
+      background-size: cover, 100% 100%, 100% 100%, 100% 100%;
+      background-position: center;
+    }
+    html.in-xr, body.in-xr { background: transparent; }
+    body.in-xr #app-bg { display: none; }
+
+    button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    input, textarea, select { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+    [hidden] { display: none !important; }
+
+    /* ---------- App shell ---------- */
+    #app {
+      position: relative;
+      z-index: 1;
+      height: 100dvh;
+      max-width: 430px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .app-bar {
+      flex: none;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+    }
+    .app-bar .left { width: 100px; display: flex; }
+    .app-bar .left button { color: var(--light-purple); font-size: 15px; font-weight: 600; line-height: 20px; white-space: nowrap; }
+    .app-bar .title { flex: 1; min-width: 0; text-align: center; font-size: 16px; font-weight: 600; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .app-bar .brand { width: 100px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--neon-pink); font-size: 13px; font-weight: 500; line-height: 16px; }
+    .pip-dot { position: relative; width: 10px; height: 10px; flex: none; }
+    .pip-dot img { position: absolute; inset: -280%; width: 660%; height: 660%; max-width: none; }
+
+    #screens { flex: 1; min-height: 0; position: relative; }
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px 24px 16px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .screen::-webkit-scrollbar { display: none; }
+    .screen > * { flex-shrink: 0; }
+    .flex-space { flex: 1 0 0 !important; min-height: 0; }
+
+    .tab-bar {
+      flex: none;
+      position: relative;
+      height: calc(60px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      display: flex;
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--panel-border);
+    }
+    .tab-bar button {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--slate);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 16px;
+    }
+    .tab-bar button[aria-current="page"] { color: var(--light-purple); }
+    .tab-bar button[aria-current="page"]::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: 50%;
+      width: 28px;
+      height: 3px;
+      margin-left: -14px;
+      border-radius: 2px;
+      background: var(--grad-button);
+    }
+    .tab-icon { width: 24px; height: 24px; background: currentColor; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; }
+
+    /* ---------- Type ---------- */
+    .h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 34px; color: var(--text); }
+    .h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 26px; color: var(--light-purple); }
+    .h3 { margin: 0; font-size: 16px; font-weight: 600; line-height: 22px; }
+    .body { margin: 0; font-size: 14px; font-weight: 400; line-height: 21px; color: var(--surface); }
+    .small { margin: 0; font-size: 12px; font-weight: 400; line-height: 18px; color: var(--slate); }
+    .overline { font-size: 11px; font-weight: 600; line-height: 16px; letter-spacing: 1.32px; text-transform: uppercase; color: var(--slate); }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 48px;
+      padding: 0 20px;
+      border-radius: 24px;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 20px;
+      white-space: nowrap;
+      transition: transform 0.1s, filter 0.15s;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn-primary { background: var(--grad-button); filter: var(--glow-primary); color: var(--text); text-shadow: 0 1px 3px rgba(15, 13, 31, 0.45); }
+    .btn-primary:hover:not(:disabled) { filter: drop-shadow(0 0 16px rgba(124, 58, 237, 0.75)); }
+    .btn-secondary { background: var(--panel); border: 1.25px solid var(--light-purple); color: var(--starlight); }
+    .btn-secondary:hover:not(:disabled) { background: rgba(43, 32, 82, 0.9); }
+    .btn-ghost { color: var(--light-purple); }
+    .btn-danger { background: var(--panel); border: 1.5px solid var(--rose); color: var(--rose); }
+    .btn-m { height: 40px; border-radius: 20px; }
+    .btn-row { display: flex; gap: 12px; width: 100%; }
+    .btn-row > .btn { flex: 1 0 0; min-width: 0; }
+    .btn-square { width: 64px; flex: none !important; }
+
+    /* Native select styled as a secondary button (filters) */
+    .btn-select { overflow: hidden; }
+    .btn-select select { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; font-size: 16px; }
+
+    /* ---------- Field ---------- */
+    .field { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .field > label, .field > .label { font-size: 12px; font-weight: 500; line-height: 16px; color: var(--surface); }
+    .input {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      min-height: 48px;
+      padding: 13px 14px;
+      border-radius: 14px;
+      background: var(--field);
+      border: 1px solid var(--muted-purple);
+      font-size: 14px;
+      line-height: 21px;
+      color: var(--text);
+      outline: none;
+    }
+    .input:focus-within, .input:focus { border-color: var(--light-purple); }
+    .input input, .input textarea, .input select { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; padding: 0; font-size: 14px; line-height: 21px; color: var(--text); }
+    .input textarea { resize: none; min-height: 63px; }
+    .input ::placeholder { color: var(--slate); }
+    .input .chev { color: var(--surface); flex: none; }
+    .input .clear { color: var(--surface); font-size: 16px; line-height: 1; padding: 0 2px; }
+    input[type="date"], input[type="time"] { color-scheme: dark; }
+    .search-icon { width: 20px; height: 20px; flex: none; }
+
+    /* ---------- Panel / pill ---------- */
+    .panel { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 14px; border-radius: 18px; background: var(--panel); border: 1px solid var(--panel-border); }
+    .pill { align-self: flex-start; display: inline-flex; align-items: center; padding: 5px 11px; border-radius: 14px; background: var(--panel); border: 1.5px solid var(--light-purple); font-size: 13px; font-weight: 500; line-height: 16px; color: var(--starlight); white-space: nowrap; }
+    .pill.teal { border-color: var(--teal); }
+    .pill.amber { border-color: var(--amber); }
+    .pill.pink { border-color: var(--neon-pink); }
+    .sound-panel { gap: 10px; }
+    .sound-volume { display: flex; align-items: center; gap: 12px; }
+    .sound-volume input { flex: 1; accent-color: var(--light-purple); }
+    .sound-volume input:disabled { opacity: 0.4; }
+
+    /* ---------- Screen 13: welcome brief over Home ---------- */
+    .modal-backdrop.brief-backdrop { align-items: flex-end; background: rgba(11, 10, 26, 0.6); padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+    .brief-card { gap: 12px; }
+    .brief-head { display: flex; align-items: center; gap: 12px; }
+    .brief-pip { position: relative; width: 48px; height: 72px; flex: none; }
+    .brief-greet { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .brief-greet .h2 { color: var(--text); }
+    .brief-card .btn-row > .btn { height: 48px; }
+    .divider { height: 1px; width: 100%; background: var(--panel-border); }
+
+    /* ---------- Orb (2D) ---------- */
+    .orb-icon { position: relative; width: 70px; height: 30px; flex: none; }
+    .orb-icon .orb { position: absolute; left: 3.5px; top: -16.3px; width: 63px; height: 63px; max-width: none; }
+    .orb-icon .hl { position: absolute; left: 25.67px; top: 4.67px; width: 9.33px; height: 5.83px; }
+
+    /* ---------- Thought row ---------- */
+    .thought-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .thought-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px;
+      border-radius: 16px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      text-align: left;
+    }
+    .thought-row:hover { border-color: rgba(183, 148, 246, 0.6); }
+    .thought-row .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .thought-row .title { font-size: 16px; font-weight: 600; line-height: 22px; color: var(--text); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .thought-row .meta { font-size: 12px; line-height: 18px; color: var(--slate); }
+    .thought-row .status { display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--surface); }
+    .thought-row .status b { font-size: 16px; font-weight: 600; line-height: 22px; color: var(--light-purple); }
+    .empty { padding: 20px; border-radius: 16px; border: 1px dashed var(--panel-border); text-align: center; }
+
+    /* ---------- Orbit stage (live 3D) ---------- */
+    .orbit-stage { position: relative; width: 100%; height: clamp(240px, 38dvh, 320px); border-radius: 18px; overflow: hidden; }
+    .orbit-stage canvas { display: block; touch-action: none; }
+    .orbit-stage.boxed { background: linear-gradient(180deg, #2B2547 0%, #0F0D1F 100%); }
+    #home-stage { flex: 1 1 auto; height: auto; min-height: 280px; }
+    /* Screen 14 welcome bubble: glass panel at the top of the orbit/camera view, above Pip */
+    .pip-bubble {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      width: min(328px, calc(100% - 24px));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px 18px;
+      border-radius: 20px;
+      background: rgba(26, 19, 51, 0.92);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    }
+    .pip-bubble .h3 { font-size: 16px; color: var(--text); }
+    .pip-bubble .small { color: var(--surface); }
+    /* The AR screen hides helper text; the bubble's own copy stays visible. */
+    body.in-xr #screen-ar-orbit .pip-bubble .small { display: block; }
+    .group-nav { display: flex; align-items: center; gap: 12px; width: 100%; }
+    .group-nav .label { flex: 1; text-align: center; }
+
+    /* ---------- Camera placeholders ---------- */
+    .cam-box { position: relative; width: 100%; border-radius: 18px; overflow: hidden; background: linear-gradient(180deg, #2B2547 0%, #0F0D1F 100%); border: 1px solid var(--panel-border); }
+    .cam-intro { height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+    .cam-intro .avatar-slot { position: absolute; right: 10px; top: 26px; width: 80px; height: 128px; }
+    .cam-place { height: 362px; }
+    .cam-place .overline { position: absolute; left: 15px; top: 15px; }
+    .cam-place .surface { position: absolute; left: 50%; margin-left: -148px; top: 129px; width: 296px; height: 140px; }
+    .cam-place .reticle { position: absolute; left: 50%; margin-left: -32px; top: 199px; width: 54px; height: 29px; }
+    .cam-place .reticle img { position: absolute; inset: -73.28% -39.35%; width: 178.7%; height: 246.6%; max-width: none; }
+    .cam-place .avatar-slot { position: absolute; left: calc(35.23% - 0.3px); right: calc(34.66% - 0.31px); top: 44px; aspect-ratio: 158 / 253; }
+    .cam-place .hint { position: absolute; left: 0; right: 0; top: 289px; text-align: center; font-size: 12px; line-height: 18px; color: var(--text); }
+
+    /* Avatar artwork: classic Pip is the first frame of the turnaround sprite */
+    .avatar-art { position: relative; overflow: hidden; pointer-events: none; }
+    .avatar-art img { position: absolute; max-width: none; }
+    .avatar-art.sprite img { left: 0; top: -0.05%; height: 100.11%; width: 369.62%; }
+    .avatar-art.contain img { inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+    /* ---------- Voice ---------- */
+    .rec-panel { align-items: center; gap: 14px; padding: 16px; }
+    .wave { display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; width: 158px; }
+    .wave span { width: 6px; border-radius: 3px; background: var(--grad-button); transform-origin: center; }
+    .recording .wave span { animation: wave 0.9s ease-in-out infinite alternate; }
+    .wave span:nth-child(3n) { animation-delay: -0.3s; }
+    .wave span:nth-child(3n+1) { animation-delay: -0.6s; }
+    @keyframes wave { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+    .timer { font-size: 32px; font-weight: 700; line-height: 40px; font-variant-numeric: tabular-nums; }
+
+    /* ---------- Thought detail ---------- */
+    .detail-glow { position: absolute; right: 25px; top: 21px; width: 56px; height: 56px; }
+    .detail-glow img { position: absolute; inset: -50%; width: 200%; height: 200%; max-width: none; }
+    .info { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+    .info .h3 { color: var(--light-purple); }
+
+    /* ---------- Avatar carousel ---------- */
+    #screen-avatar { padding-left: 0; padding-right: 0; }
+    #screen-avatar > .pad { padding: 0 24px; }
+    .dots { display: flex; align-items: center; gap: 10px; }
+    .dots .row { display: flex; gap: 6px; }
+    .dots i { width: 8px; height: 8px; border-radius: 4px; background: rgba(233, 231, 255, 0.08); transition: width 0.2s, background 0.2s; }
+    .dots i.on { width: 20px; background: var(--light-purple); }
+    .carousel { display: flex; gap: 16px; padding: 0 24px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .carousel::-webkit-scrollbar { display: none; }
+    .avatar-card { flex: none; width: 260px; display: flex; flex-direction: column; gap: 12px; scroll-snap-align: center; text-align: left; }
+    .avatar-card .slot { position: relative; width: 260px; height: 290px; border-radius: 28px; overflow: hidden; background: var(--panel); border: 1.5px dashed var(--panel-border); }
+    .avatar-card.focused .slot { border-style: solid; border-color: var(--light-purple); }
+    .avatar-card.current .slot { border: 2px solid var(--teal); box-shadow: 0 0 20px rgba(0, 209, 193, 0.5); }
+    .avatar-card .slot .avatar-art { position: absolute; }
+    .avatar-card .name { font-size: 16px; font-weight: 600; line-height: 22px; color: var(--starlight); }
+    .avatar-card .sub { font-size: 14px; line-height: 21px; color: var(--slate); }
+    .avatar-card.current .sub { color: var(--aqua); }
+
+    /* ---------- Toast ---------- */
+    /* ---------- Edit details pop-up (over the live AR view) ---------- */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+      background: rgba(11, 10, 26, 0.35);
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 400px;
+      max-height: 85%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(26, 19, 51, 0.94);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    }
+    .btn-row > .btn-primary.btn-m { height: 40px; border-radius: 20px; }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      top: calc(64px + env(safe-area-inset-top));
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: min(400px, calc(100vw - 32px));
+      padding: 10px 14px;
+      border-radius: 16px;
+      background: rgba(26, 19, 51, 0.95);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      font-size: 13px;
+      line-height: 18px;
+      color: var(--starlight);
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, -8px);
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    #toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+    #toast button { color: var(--aqua); font-weight: 600; }
+
+    /* ---------- Large mixed-reality screens (HoloLens slate, 120"–171" virtual screen) ----------
+       Wide landscape windows get two panes: the app column on the left, scaled with the window
+       height (--ui-zoom) so text and targets stay comfortable from a few metres away, and a big
+       live 3D stage on the right where Pip and the orbit are always in view. */
+    .ui-col { display: contents; }
+    .wide-stage { display: none; }
+    @media (min-width: 1000px) and (min-aspect-ratio: 4/3) {
+      body:not(.in-xr) #app {
+        max-width: none;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: calc(28px * var(--ui-zoom, 1));
+        padding: calc(24px * var(--ui-zoom, 1));
+      }
+      body:not(.in-xr) .ui-col {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        zoom: var(--ui-zoom, 1);
+        width: 430px;
+        height: calc((100dvh - 48px * var(--ui-zoom, 1)) / var(--ui-zoom, 1));
+        border-radius: 28px;
+        overflow: hidden;
+        background: rgba(15, 13, 31, 0.55);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+      body:not(.in-xr) .wide-stage {
+        display: block;
+        position: relative;
+        min-width: 0;
+        border-radius: calc(28px * var(--ui-zoom, 1));
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(43, 37, 71, 0.55) 0%, rgba(15, 13, 31, 0.35) 100%);
+        border: 1px solid var(--panel-border);
+      }
+      body:not(.in-xr) .wide-stage canvas { display: block; touch-action: none; }
+      /* The big stage replaces the in-column orbit boxes. */
+      body:not(.in-xr) #home-stage, body:not(.in-xr) #ar-stage { display: none; }
+      body:not(.in-xr) #home-capture { margin-top: auto; }
+      /* Pip's welcome bubble sits at the top of the big stage, at the same scale as the column. */
+      body:not(.in-xr) .wide-stage .pip-bubble { zoom: var(--ui-zoom, 1); top: 16px; }
+      body:not(.in-xr) #toast { font-size: calc(13px * var(--ui-zoom, 1)); padding: calc(10px * var(--ui-zoom, 1)) calc(14px * var(--ui-zoom, 1)); max-width: min(calc(400px * var(--ui-zoom, 1)), calc(100vw - 32px)); }
+    }
+
+    /* ---------- Immersive AR (DOM overlay) ---------- */
+    body.in-xr #app { max-width: none; }
+    canvas.xr-canvas { position: fixed; inset: 0; width: 100vw !important; height: 100vh !important; z-index: 0; }
+    canvas.parked { position: fixed; left: 0; top: 0; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; }
+    /* AR camera screens: minimum text, so the room and Pip are the experience. */
+    body.in-xr #screen-ar-place > .h1,
+    body.in-xr #screen-ar-place > .body,
+    body.in-xr #screen-ar-orbit .small,
+    body.in-xr #screen-ar-orbit .group-nav .label { display: none; }
+    body.in-xr #screen-ar-orbit .group-nav { justify-content: space-between; }
+    body.in-xr #screen-ar-place .cam-place { flex: 1 1 auto; height: auto; }
+    body.in-xr #screen-ar-orbit .orbit-stage { flex: 1 1 auto; height: auto; }
+    body.in-xr .tab-bar { display: none; }
+    body.in-xr .app-bar { background: rgba(15, 13, 31, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    body.in-xr .cam-place { background: transparent; border-color: transparent; }
+    body.in-xr .cam-place .overline,
+    body.in-xr .cam-place .surface,
+    body.in-xr .cam-place .reticle,
+    body.in-xr .cam-place .avatar-slot { display: none; }
+    body.in-xr .cam-place .hint { text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9); }
+    body.in-xr .orbit-stage { background: transparent; }
+    body.in-xr .screen .h1, body.in-xr .screen .body, body.in-xr .screen .small { text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); }
+  </style>
+</head>
+<body>
+  <div id="app-bg" aria-hidden="true"></div>
+  <div id="app">
+    <!-- On phones this wrapper is invisible to layout; on large landscape windows (HoloLens slates)
+         it becomes the scaled left column next to the big 3D stage. -->
+    <div class="ui-col" id="ui-col">
+    <header class="app-bar">
+      <div class="left"><button id="bar-left" type="button"></button></div>
+      <div class="title" id="bar-title" role="heading" aria-level="1">Your orbit</div>
+      <div class="brand"><span class="pip-dot"><img src="assets/pip-dot.svg" alt=""></span>Pip</div>
+    </header>
+
+    <main id="screens">
+
+      <!-- 01 Home and orbit -->
+      <section class="screen" id="screen-home" aria-label="Your orbit">
+        <h2 class="h1" id="home-heading">Hi, I’m Pip</h2>
+        <p class="body" id="home-copy"></p>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-m" type="button" id="home-2d">2D view ✓</button>
+          <button class="btn btn-secondary btn-m" type="button" id="home-ar">Try AR</button>
+        </div>
+        <div class="orbit-stage" id="home-stage" aria-label="Thought orbit. Tap an orb to open it."></div>
+        <div class="group-nav" id="home-groups" hidden>
+          <button class="btn btn-secondary btn-m btn-square" type="button" data-group="-1" aria-label="Previous group">‹</button>
+          <p class="body label" id="home-group-label"></p>
+          <button class="btn btn-secondary btn-m btn-square" type="button" data-group="1" aria-label="Next group">›</button>
+        </div>
+        <button class="btn btn-primary" type="button" id="home-capture">+ Capture a thought</button>
+      </section>
+
+      <!-- 02 Quick text capture -->
+      <section class="screen" id="screen-capture" aria-label="New thought" hidden>
+        <h2 class="h1">Park it. Come back later.</h2>
+        <p class="body">Only your thought is needed.</p>
+        <div class="field">
+          <label for="capture-text">Your thought</label>
+          <div class="input"><textarea id="capture-text" rows="3" maxlength="280" placeholder="What’s on your mind?"></textarea></div>
+        </div>
+        <button class="btn btn-primary" type="button" id="capture-next">Next</button>
+        <button class="btn btn-ghost" type="button" id="capture-voice">Use Voice</button>
+        <p class="small">No reminder by default. Add one whenever you like.</p>
+      </section>
+
+      <!-- 03 Voice capture -->
+      <section class="screen" id="screen-voice" aria-label="Voice thought" hidden>
+        <h2 class="h1">Say what’s on your mind.</h2>
+        <p class="body">Review the words before you park them.</p>
+        <div class="panel rec-panel" id="rec-panel">
+          <div class="wave" aria-hidden="true">
+            <span style="height:12px"></span><span style="height:24px"></span><span style="height:40px"></span><span style="height:28px"></span>
+            <span style="height:54px"></span><span style="height:36px"></span><span style="height:60px"></span><span style="height:24px"></span>
+            <span style="height:44px"></span><span style="height:20px"></span><span style="height:32px"></span><span style="height:12px"></span>
+          </div>
+          <div class="timer" id="rec-timer" aria-live="off">00:00</div>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-m" type="button" id="rec-toggle">Pause</button>
+            <button class="btn btn-secondary btn-m" type="button" id="rec-stop">■ Stop</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="voice-text">Transcript · tap to edit</label>
+          <div class="input"><textarea id="voice-text" rows="3" maxlength="280" placeholder="Your words will appear here."></textarea></div>
+        </div>
+        <p class="small" id="voice-note">Nothing is parked until you choose Park thought.</p>
+        <div class="flex-space"></div>
+        <button class="btn btn-primary" type="button" id="voice-next">Next</button>
+        <button class="btn btn-ghost" type="button" id="voice-text-instead">Use text instead</button>
+      </section>
+
+      <!-- 04 Optional details and edit -->
+      <section class="screen" id="screen-details" aria-label="Edit thought" hidden>
+        <p class="body">Add only what will help you reconnect later.</p>
+        <div class="field">
+          <label for="d-title">Thought</label>
+          <div class="input"><textarea id="d-title" rows="3" maxlength="280"></textarea></div>
+        </div>
+        <div class="field">
+          <label for="d-context">What were you doing? · optional</label>
+          <div class="input"><input id="d-context" maxlength="140" placeholder="e.g. Browsing gift ideas online."></div>
+        </div>
+        <div class="field">
+          <label for="d-next">Smallest next action · optional</label>
+          <div class="input"><input id="d-next" maxlength="140" placeholder="e.g. List three styles to try."></div>
+        </div>
+        <div class="field">
+          <label for="d-project">Project · optional</label>
+          <div class="input"><input id="d-project" maxlength="40" list="project-list" placeholder="e.g. Research methods"><span class="chev" aria-hidden="true">›</span></div>
+          <datalist id="project-list"></datalist>
+        </div>
+        <div class="flex-space"></div>
+        <button class="btn btn-primary" type="button" id="d-primary">Add Time</button>
+        <button class="btn btn-ghost" type="button" id="d-secondary">Skip</button>
+      </section>
+
+      <!-- 05 Choose revisit time -->
+      <section class="screen" id="screen-revisit" aria-label="Revisit time" hidden>
+        <h2 class="h1">When would help?</h2>
+        <p class="body">You can revisit manually at any time.</p>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-m" type="button" data-quick="later">Later today</button>
+          <button class="btn btn-secondary btn-m" type="button" data-quick="tomorrow">Tomorrow</button>
+        </div>
+        <div class="field">
+          <label for="r-date">Date</label>
+          <div class="input"><input type="date" id="r-date"></div>
+        </div>
+        <div class="field">
+          <label for="r-time">Time</label>
+          <div class="input"><input type="time" id="r-time"></div>
+        </div>
+        <p class="small" id="r-zone"></p>
+        <p class="small" id="r-note"></p>
+        <div class="flex-space"></div>
+        <button class="btn btn-primary" type="button" id="r-primary">Park Thought</button>
+        <button class="btn btn-ghost" type="button" id="r-secondary" hidden>Remove reminder</button>
+      </section>
+
+      <!-- 06 All thoughts library -->
+      <section class="screen" id="screen-library" aria-label="Library" hidden>
+        <h2 class="h1">All thoughts</h2>
+        <button class="input" type="button" id="lib-search" aria-label="Search thoughts">
+          <img class="search-icon" src="assets/icon-search.svg" alt="">
+          <span id="lib-search-text" style="flex:1;text-align:left">Search</span>
+        </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <p class="small" id="lib-caption"></p>
+          <button class="small" type="button" id="lib-clear" style="color:var(--light-purple);font-weight:600" hidden>Clear filters</button>
+        </div>
+        <div class="thought-list" id="lib-list"></div>
+      </section>
+
+      <!-- 07 Search and filters -->
+      <section class="screen" id="screen-search" aria-label="Search" hidden>
+        <h2 class="h1">Find a thought</h2>
+        <div class="field">
+          <label for="s-query">Search</label>
+          <div class="input"><input id="s-query" type="search" placeholder="Type a word" autocomplete="off"><button class="clear" type="button" id="s-clear" aria-label="Clear search">×</button></div>
+        </div>
+        <p class="h2">Filter &amp; sort</p>
+        <div class="btn btn-secondary btn-m btn-select"><span id="f-project-label"></span><select id="f-project" aria-label="Project filter"></select></div>
+        <div class="btn btn-secondary btn-m btn-select"><span id="f-date-label"></span><select id="f-date" aria-label="Date saved filter">
+          <option value="any">Any time</option><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option>
+        </select></div>
+        <div class="btn btn-secondary btn-m btn-select"><span id="f-status-label"></span><select id="f-status" aria-label="Status filter">
+          <option value="all">All</option><option value="parked">○ Parked</option><option value="active">▷ Active</option><option value="completed">✓ Completed</option><option value="archived">□ Archived</option>
+        </select></div>
+        <p class="small" id="s-caption"></p>
+        <div class="thought-list" id="s-list"></div>
+        <p class="small" id="s-match"></p>
+        <div class="flex-space"></div>
+        <button class="btn btn-primary" type="button" id="s-done">Done</button>
+      </section>
+
+      <!-- 08 Thought detail -->
+      <section class="screen" id="screen-detail" aria-label="Thought detail" hidden style="gap:15px">
+        <span class="pill" id="t-pill"></span>
+        <h2 class="h1" id="t-title" style="padding-right:64px"></h2>
+        <p class="body" id="t-body" style="color:var(--text)"></p>
+        <p class="small" id="t-saved"></p>
+        <div class="divider"></div>
+        <div class="info"><p class="h3">Original context</p><p class="body" id="t-context"></p></div>
+        <div class="info"><p class="h3">Smallest next action</p><p class="body" id="t-next"></p></div>
+        <button class="btn btn-secondary btn-m" type="button" id="t-remind"></button>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" id="t-start">Start thought</button>
+          <button class="btn btn-secondary" type="button" id="t-complete">✓ Complete</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-m" type="button" id="t-edit">Edit details</button>
+          <button class="btn btn-secondary btn-m" type="button" id="t-archive">□ Archive</button>
+        </div>
+        <button class="btn btn-danger btn-m" type="button" id="t-delete">Delete thought…</button>
+        <div class="detail-glow" aria-hidden="true"><img id="t-glow" src="assets/glow-orb.svg" alt=""></div>
+      </section>
+
+      <!-- 09 Camera permission -->
+      <section class="screen" id="screen-ar-intro" aria-label="Try AR" hidden style="gap:14px">
+        <div class="cam-box cam-intro">
+          <img src="assets/icon-camera.svg" width="40" height="40" alt="">
+          <p class="small">AR camera preview</p>
+          <div class="avatar-slot" data-avatar-art></div>
+        </div>
+        <h2 class="h1">Place Pip in your space.</h2>
+        <p class="body">Pip uses the camera to find a suitable surface and show your thought orbs around you.</p>
+        <div class="panel">
+          <p class="h3">Your camera, your choice</p>
+          <p class="body">AR needs live camera access. You can change access in your browser settings. Your saved thoughts remain available in 2D.</p>
+        </div>
+        <p class="small" id="ar-intro-note">Permission is requested next by your browser, not on this screen.</p>
+        <div class="flex-space"></div>
+        <button class="btn btn-primary" type="button" id="ar-continue">Continue to camera permission</button>
+        <button class="btn btn-ghost" type="button" data-use-2d>Use 2D instead</button>
+      </section>
+
+      <!-- 10 Detect and place Pip -->
+      <section class="screen" id="screen-ar-place" aria-label="Find a place for Pip" hidden>
+        <h2 class="h1">Find a place for Pip.</h2>
+        <p class="body">Move your phone slowly across a table or floor.</p>
+        <div class="cam-box cam-place">
+          <span class="overline">Live camera / wireframe</span>
+          <img class="surface" src="assets/detected-surface.svg" alt="">
+          <div class="reticle"><img src="assets/reticle.svg" alt=""></div>
+          <div class="avatar-slot" data-avatar-art></div>
+          <p class="hint">Tap a surface to choose a spot</p>
+        </div>
+        <span class="pill" id="place-pill">Looking for a surface…</span>
+        <button class="btn btn-primary" type="button" id="place-here">Place Pip here</button>
+        <button class="btn btn-ghost" type="button" data-use-2d>Use 2D instead</button>
+      </section>
+
+      <!-- 11 Placed AR orbit (also the 3D orbit fallback) -->
+      <section class="screen" id="screen-ar-orbit" aria-label="Pip in your space" hidden style="gap:9px;padding-top:14px">
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-m" type="button" id="orbit-pause">II Pause orbit</button>
+          <button class="btn btn-secondary btn-m" type="button" id="orbit-reposition">Reposition Pip</button>
+        </div>
+        <div class="orbit-stage boxed" id="ar-stage" aria-label="Thought orbit">
+          <!-- Screen 14: Pip's welcome-back reminder, shown once when AR (or the 3D orbit) opens -->
+          <div class="pip-bubble" id="pip-bubble" role="status" hidden>
+            <p class="h3" id="pip-bubble-title">Welcome back! 👋</p>
+            <p class="small" id="pip-bubble-copy"></p>
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-m" type="button" id="pip-bubble-later">Not yet</button>
+              <button class="btn btn-primary btn-m" type="button" id="pip-bubble-show">Show me</button>
+            </div>
+          </div>
+        </div>
+        <div class="group-nav">
+          <button class="btn btn-secondary btn-m btn-square" type="button" data-group="-1" aria-label="Previous group">‹</button>
+          <p class="body label" id="ar-group-label"></p>
+          <button class="btn btn-secondary btn-m btn-square" type="button" data-group="1" aria-label="Next group">›</button>
+        </div>
+        <p class="small" id="ar-select-copy">Tap any orb to select. Or use the buttons below.</p>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-m" type="button" id="orb-prev">‹ Previous orb</button>
+          <button class="btn btn-secondary btn-m" type="button" id="orb-next">Next orb ›</button>
+        </div>
+        <p class="small" id="hand-note" role="status" aria-live="polite"></p>
+        <button class="btn btn-ghost btn-m" type="button" id="orbit-mode">Use AR</button>
+      </section>
+
+      <!-- Settings (not in the Figma set; built from the same components) -->
+      <section class="screen" id="screen-settings" aria-label="Settings" hidden>
+        <h2 class="h1">Settings</h2>
+        <p class="body">How Pip looks and how it reaches you.</p>
+        <button class="btn btn-secondary btn-m" type="button" id="set-avatar"></button>
+        <div class="panel sound-panel">
+          <p class="h3">Sound</p>
+          <p class="body">Soft sounds when you park, select and complete thoughts. Pip stays quiet while you type or speak.</p>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-m" type="button" id="set-sound-toggle" aria-pressed="true">Sound effects: On</button>
+            <button class="btn btn-secondary btn-m" type="button" id="set-sound-preview">▶ Pip’s sound</button>
+          </div>
+          <label class="sound-volume" for="set-sound-volume">
+            <span class="small">Volume</span>
+            <input type="range" id="set-sound-volume" min="0" max="100" step="5">
+          </label>
+        </div>
+        <div class="panel">
+          <p class="h3">Reminders</p>
+          <p class="body" id="set-notify-copy"></p>
+        </div>
+        <button class="btn btn-secondary btn-m" type="button" id="set-notify">Allow notifications</button>
+        <div class="panel">
+          <p class="h3">Room AR and hand gestures</p>
+          <p class="body" id="set-ar-copy"></p>
+        </div>
+        <div class="panel">
+          <p class="h3">Your data</p>
+          <p class="body">Thoughts are saved in this browser on this device. Nothing is uploaded or synced.</p>
+        </div>
+      </section>
+
+      <!-- 12 Choose avatar -->
+      <section class="screen" id="screen-avatar" aria-label="Change avatar" hidden>
+        <div class="pad" style="display:flex;flex-direction:column;gap:12px">
+          <h2 class="h1">Choose your Pip.</h2>
+          <p class="body">Swipe to browse. Tap Select avatar to switch.</p>
+        </div>
+        <div class="pad dots"><div class="row" id="avatar-dots"></div><span class="body" id="avatar-pos" style="color:var(--slate)"></span></div>
+        <div class="carousel" id="avatar-carousel"></div>
+        <div class="flex-space"></div>
+        <div class="pad"><button class="btn btn-primary" type="button" id="avatar-select">Select avatar</button></div>
+      </section>
+    </main>
+
+    <!-- Screen 13: welcome brief, shown over Home when the app opens -->
+    <div class="modal-backdrop brief-backdrop" id="brief" hidden>
+      <div class="modal-card brief-card" role="dialog" aria-modal="true" aria-labelledby="brief-heading">
+        <div class="brief-head">
+          <div class="brief-pip" id="brief-pip" aria-hidden="true"></div>
+          <div class="brief-greet">
+            <span class="pill pink">✦ Welcome back</span>
+            <p class="h2" id="brief-heading"></p>
+          </div>
+        </div>
+        <p class="body" id="brief-sub"></p>
+        <div class="thought-list" id="brief-list"></div>
+        <p class="small" id="brief-more"></p>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" id="brief-show">Show me in orbit</button>
+          <button class="btn btn-ghost" type="button" id="brief-later">Later</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit details pop-up: used from the AR task card so the camera view stays live behind it -->
+    <div class="modal-backdrop" id="edit-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="em-heading">
+        <p class="h2" id="em-heading">Edit details</p>
+        <div class="field">
+          <label for="em-title">Thought</label>
+          <div class="input"><textarea id="em-title" rows="2" maxlength="280"></textarea></div>
+        </div>
+        <div class="field">
+          <label for="em-context">What were you doing? · optional</label>
+          <div class="input"><input id="em-context" maxlength="140" placeholder="e.g. Browsing gift ideas online."></div>
+        </div>
+        <div class="field">
+          <label for="em-next">Smallest next action · optional</label>
+          <div class="input"><input id="em-next" maxlength="140" placeholder="e.g. List three styles to try."></div>
+        </div>
+        <div class="field">
+          <label for="em-project">Project · optional</label>
+          <div class="input"><input id="em-project" maxlength="40" list="project-list" placeholder="e.g. Research methods"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-m" type="button" id="em-cancel">Cancel</button>
+          <button class="btn btn-primary btn-m" type="button" id="em-save">Save changes</button>
+        </div>
+      </div>
+    </div>
+
+    <nav class="tab-bar" id="tab-bar" aria-label="Main">
+      <button type="button" data-tab="home"><span class="tab-icon" style="--icon:url(assets/icon-orbit.svg)"></span>AR Orbit</button>
+      <button type="button" data-tab="library"><span class="tab-icon" style="--icon:url(assets/icon-library.svg)"></span>Library</button>
+      <button type="button" data-tab="settings"><span class="tab-icon" style="--icon:url(assets/icon-settings.svg)"></span>Settings</button>
+    </nav>
+    </div>
+    <div class="wide-stage" id="wide-stage" aria-label="Pip's orbit. Tap an orb to open it."></div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"><span id="toast-msg"></span><button id="toast-action" type="button" hidden>Undo</button></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const STORAGE_KEY = 'pip_thought_orbit_v8_stable';
+    const AVATAR_KEY = 'pip_avatar_v1';
+    const ORBS_PER_GROUP = 3;
+    const REMIND_CHECK_MS = 15000;
+    const LETTERS = 'ABC';
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    let tasks = [];
+    let groupIndex = 0;
+    let selectedId = null;
+    let isARSupported = false;
+    let isVRSupported = false;   // HoloLens / Windows MR fallback when only immersive-vr is offered
+    // Headset mode: immersive session without the 2D page overlay (HoloLens, Quest browser in VR…).
+    // All AR controls are then drawn as 3D panels instead of HTML.
+    let headsetMode = false;
+    // See-through (additive) displays such as HoloLens show black as transparent, so 3D panels
+    // use a brighter purple there to stay readable.
+    let additiveDisplay = false;
+    let pipPlaced = false;
+    let isOrbitPaused = false;
+    let hitTestSource = null;
+    let pipAlertUntil = 0;
+
+    // Hand-pinch state is tracked per XR input source so a held pinch
+    // triggers only once, rather than reopening the same task every frame.
+    const handPinchStates = new WeakMap();
+    let handTrackingSeen = false;
+    let lastHandGestureAt = 0;
+    let xrSessionStartedAt = 0;
+    let hoveredOrb = null;
+
+    /* =====================================================================
+       Store
+       ===================================================================== */
+
+    // Adds the fields introduced after v8 without touching existing ones,
+    // so thoughts saved by earlier builds keep working under the same key.
+    function normalizeTask(t) {
+      return {
+        ...t,
+        id: String(t.id),
+        title: String(t.title || '').slice(0, 280),
+        context: t.context || '',
+        nextStep: t.nextStep || '',
+        project: t.project || '',
+        completed: !!t.completed,
+        archived: !!t.archived,
+        started: !!t.started,
+        remindAt: Number.isFinite(t.remindAt) ? t.remindAt : null,
+        notified: !!t.notified,
+        // Older builds used ids like "1"; only treat an id as a timestamp when it looks like one.
+        createdAt: [t.createdAt, Number(t.id)].find(v => Number.isFinite(v) && v > 1e12) || Date.now(),
+        completedAt: t.completedAt || (t.completed ? Date.now() : null)
+      };
+    }
+
+    function loadSavedTasks() {
+      let raw = null;
+      try {
+        raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) tasks = JSON.parse(raw) || [];
+      } catch (e) { tasks = []; }
+      if (!Array.isArray(tasks)) tasks = [];
+      // Seed the welcome thought only on a first visit, not after the user clears everything.
+      if (raw === null) {
+        tasks = [{ id: '1', title: 'Welcome to Pip Orbit', context: 'Exploring AR space', nextStep: 'Tap orb to inspect', completed: false }];
+      }
+      tasks = tasks.filter(t => t && t.title).map(normalizeTask);
+    }
+
+    // Returns false if the browser refused to store the data (sounds that confirm a save rely on it).
+    function saveTasks() {
+      let saved = true;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch (e) { saved = false; }
+      refreshAll();
+      return saved;
+    }
+
+    const byId = (id) => tasks.find(t => t.id === id);
+    const isDue = (t) => !t.completed && !t.archived && t.notified && t.remindAt != null;
+    const statusOf = (t) => t.archived ? 'archived' : t.completed ? 'completed' : t.started ? 'active' : 'parked';
+    const STATUS = {
+      parked: { label: '○ Parked', orb: 'orb-row-pink.svg' },
+      active: { label: '▷ Active', orb: 'orb-row-blue.svg' },
+      completed: { label: '✓ Completed', orb: 'orb-row-red.svg' },
+      archived: { label: '□ Archived', orb: 'orb-row-green.svg' }
+    };
+
+    // Thoughts in the orbit: not completed, not archived; resurfaced ones first.
+    function orbitTasks() {
+      return tasks.filter(t => !t.completed && !t.archived)
+        .sort((a, b) => (isDue(b) - isDue(a)) || (a.createdAt - b.createdAt));
+    }
+    function groupCount() { return Math.max(1, Math.ceil(orbitTasks().length / ORBS_PER_GROUP)); }
+    function currentGroup() {
+      groupIndex = Math.min(groupIndex, groupCount() - 1);
+      return orbitTasks().slice(groupIndex * ORBS_PER_GROUP, (groupIndex + 1) * ORBS_PER_GROUP);
+    }
+    function orbLetter(id) {
+      const i = currentGroup().findIndex(t => t.id === id);
+      return i >= 0 ? LETTERS[i] : null;
+    }
+
+    function headline(t) {
+      const m = t.title.match(/^(.+?[.!?])(\s|$)/);
+      const first = m ? m[1] : t.title;
+      return first.length > 60 ? first.slice(0, 59).trimEnd() + '…' : first;
+    }
+
+    const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+    function shortDay(ms) {
+      if (sameDay(ms, Date.now())) return 'Today';
+      if (sameDay(ms, Date.now() - 864e5)) return 'Yesterday';
+      return new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short' });
+    }
+    function formatWhen(ms) {
+      return new Date(ms).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    }
+
+    /* =====================================================================
+       Toast
+       ===================================================================== */
+    let toastTimer = null;
+    let toastAction = null;
+    function showToast(message, action = null) {
+      $('toast-msg').textContent = message;
+      toastAction = action;
+      $('toast-action').hidden = !action;
+      if (action) $('toast-action').textContent = action.label;
+      $('toast').classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { $('toast').classList.remove('show'); toastAction = null; }, action ? 6000 : 3500);
+    }
+    $('toast-action').addEventListener('click', () => {
+      if (toastAction) toastAction.run();
+      toastAction = null;
+      $('toast').classList.remove('show');
+    });
+
+    /* =====================================================================
+       Navigation
+       ===================================================================== */
+    /* =====================================================================
+       Sound — Pip's audio identity, synthesized with the Web Audio API (no audio files).
+       Soft glass chimes and airy textures; Pip's signature is a two-note rise (C6 → G6).
+       One shared manager: Sound.play('name', { pan }) or Sound.play('name', { pos }).
+       ===================================================================== */
+    const SOUND_KEY = 'pip_sound_v1';
+    const Sound = (() => {
+      let ctx = null, master = null, out = null, noiseBuf = null;
+      let prefs = { on: true, volume: 0.6 };
+      try { prefs = { ...prefs, ...JSON.parse(localStorage.getItem(SOUND_KEY) || '{}') }; } catch (e) {}
+      let busy = false;             // true while the microphone is recording
+      let spatial = false;          // true in a headset session: use 3D (HRTF) panning
+      const lastPlayed = {};
+      const recent = [];            // start times of recent voices, to stop pile-ups
+
+      // Minimum gap between two plays of the same sound (ms), so repeated events never stack.
+      const COOLDOWN = { signature: 1500, welcome: 4000, capture: 400, voiceStart: 500, voiceStop: 500, park: 800,
+        select: 140, switch: 140, scan: 8000, place: 600, complete: 900, archive: 600, delete: 600, reminder: 4000 };
+
+      function ensure() {
+        if (ctx) return ctx;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try {
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = prefs.on ? prefs.volume : 0;
+          const comp = ctx.createDynamicsCompressor();   // keeps overlapping notes gentle
+          comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 4;
+          comp.attack.value = 0.003; comp.release.value = 0.25;
+          master.connect(comp); comp.connect(ctx.destination);
+          out = master;
+          noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+          const d = noiseBuf.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        } catch (e) { ctx = null; }
+        return ctx;
+      }
+
+      // Browsers only allow audio after a user gesture: create/resume on the first one.
+      function unlock() {
+        const c = ensure();
+        if (c && c.state === 'suspended') c.resume().catch(() => {});
+      }
+      ['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { capture: true, passive: true }));
+
+      // Where a sound comes from: 3D position in a headset, gentle stereo on screens, else centred.
+      function route(opts) {
+        if (spatial && opts.pos && ctx.createPanner) {
+          const p = ctx.createPanner();
+          p.panningModel = 'HRTF'; p.distanceModel = 'inverse';
+          p.refDistance = 0.6; p.rolloffFactor = 0.8;
+          if (p.positionX) { p.positionX.value = opts.pos.x; p.positionY.value = opts.pos.y; p.positionZ.value = opts.pos.z; }
+          else p.setPosition(opts.pos.x, opts.pos.y, opts.pos.z);
+          p.connect(out);
+          return p;
+        }
+        if (typeof opts.pan === 'number' && ctx.createStereoPanner) {
+          const sp = ctx.createStereoPanner();
+          sp.pan.value = Math.max(-0.5, Math.min(0.5, opts.pan));
+          sp.connect(out);
+          return sp;
+        }
+        return out;
+      }
+
+      // A soft glass "bell": sine fundamental plus two quiet overtones, quick attack, smooth decay.
+      function bell(dest, t, freq, dur, gain, { glideTo = 0, overtone = 0.22 } = {}) {
+        [[1, 1], [2.01, overtone], [3.0, overtone * 0.35]].forEach(([mult, g]) => {
+          if (g <= 0) return; // exponential ramps can't target 0, so skip silent overtones
+          const o = ctx.createOscillator();
+          const v = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(freq * mult, t);
+          if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo * mult, t + dur * 0.6);
+          v.gain.setValueAtTime(0.0001, t);
+          v.gain.exponentialRampToValueAtTime(gain * g, t + 0.012);
+          v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          o.connect(v); v.connect(dest);
+          o.start(t); o.stop(t + dur + 0.05);
+        });
+      }
+      // Airy texture: filtered noise with an envelope (for shimmer, movement, settling).
+      function air(dest, t, dur, gain, { type = 'bandpass', freq = 4000, to = 0, q = 1.2 } = {}) {
+        const src = ctx.createBufferSource();
+        src.buffer = noiseBuf;
+        const f = ctx.createBiquadFilter();
+        f.type = type; f.Q.value = q;
+        f.frequency.setValueAtTime(freq, t);
+        if (to) f.frequency.exponentialRampToValueAtTime(to, t + dur);
+        const v = ctx.createGain();
+        v.gain.setValueAtTime(0.0001, t);
+        v.gain.exponentialRampToValueAtTime(gain, t + dur * 0.3);
+        v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        src.connect(f); f.connect(v); v.connect(dest);
+        src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+      }
+
+      const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, E6 = 1318.5, G6 = 1567.98, A6 = 1760;
+      const SOUNDS = {
+        // Pip appears: the two-note signature, airy and open.
+        signature: (d, t) => { air(d, t, 0.4, 0.02, { freq: 6000 }); bell(d, t, C6, 0.9, 0.2); bell(d, t + 0.14, G6, 1.1, 0.18); },
+        // Welcome back: the same two notes, softer and slower.
+        welcome: (d, t) => { bell(d, t, C6, 1.0, 0.1); bell(d, t + 0.2, G6, 1.2, 0.09); },
+        // Capture: a small drop with a delicate shimmer.
+        capture: (d, t) => { bell(d, t, 880, 0.3, 0.14, { glideTo: 560, overtone: 0.1 }); bell(d, t + 0.06, 2637, 0.35, 0.025); bell(d, t + 0.1, 3136, 0.35, 0.02); },
+        // Voice: barely-there mic on, quiet confirming rise when it stops.
+        voiceStart: (d, t) => { bell(d, t, 660, 0.12, 0.05, { overtone: 0.05 }); },
+        voiceStop: (d, t) => { bell(d, t, G5, 0.18, 0.06, { overtone: 0.08 }); bell(d, t + 0.08, C6, 0.25, 0.06, { overtone: 0.08 }); },
+        // Park: a gentle descending glass line, then a soft settle (never a "done" sound).
+        park: (d, t) => { bell(d, t, E6, 0.5, 0.1); bell(d, t + 0.09, 987.77, 0.55, 0.09); bell(d, t + 0.18, G5, 0.7, 0.08);
+          bell(d, t + 0.26, 220, 0.45, 0.06, { glideTo: 180, overtone: 0 }); air(d, t + 0.26, 0.3, 0.012, { type: 'lowpass', freq: 500, q: 0.7 }); },
+        // Select an orb: one short, rounded glass ping.
+        select: (d, t) => { bell(d, t, A6, 0.28, 0.11, { overtone: 0.15 }); },
+        // Switch orbs: an airy little swish with a faint glint.
+        switch: (d, t) => { air(d, t, 0.18, 0.025, { freq: 2200, to: 5200, q: 1.6 }); bell(d, t + 0.05, E6, 0.15, 0.03, { overtone: 0.05 }); },
+        // AR surface found: a quiet spatial ping with a faint echo.
+        scan: (d, t) => { bell(d, t, 1975.5, 0.35, 0.045, { overtone: 0.05 }); bell(d, t + 0.18, 1975.5, 0.3, 0.02, { overtone: 0 }); },
+        // Place / move Pip: a soft landing with a low resonance.
+        place: (d, t) => { bell(d, t, 165, 0.55, 0.13, { glideTo: 110, overtone: 0 }); bell(d, t + 0.02, C5, 0.6, 0.05, { overtone: 0.1 }); air(d, t, 0.22, 0.02, { type: 'lowpass', freq: 380, q: 0.7 }); },
+        // Complete: a warm three-note resolution (C–E–G) over a soft low C.
+        complete: (d, t) => { bell(d, t, 261.63, 0.9, 0.05, { overtone: 0 }); bell(d, t, C5, 0.7, 0.1); bell(d, t + 0.1, E5, 0.75, 0.1); bell(d, t + 0.2, G5, 1.0, 0.12); },
+        // Archive: muted and soft, sliding gently down.
+        archive: (d, t) => { bell(d, t, 392, 0.3, 0.05, { glideTo: 330, overtone: 0.05 }); air(d, t, 0.22, 0.01, { type: 'lowpass', freq: 900, q: 0.7 }); },
+        // Delete: very subtle and low — a quiet confirmation, never celebratory.
+        delete: (d, t) => { bell(d, t, 220, 0.25, 0.06, { glideTo: 165, overtone: 0 }); },
+        // Reminder: a gentle two-note nudge (G5 → C6), played once.
+        reminder: (d, t) => { bell(d, t, G5, 0.5, 0.11); bell(d, t + 0.16, C6, 0.7, 0.11); }
+      };
+
+      function play(name, opts = {}) {
+        try {
+          if (!prefs.on || busy || !SOUNDS[name]) return;
+          const c = ctx;                       // never create audio before a user gesture
+          if (!c || c.state !== 'running') return;
+          const now = performance.now();
+          if (now - (lastPlayed[name] || 0) < (COOLDOWN[name] || 150)) return;
+          while (recent.length && now - recent[0] > 350) recent.shift();
+          if (recent.length >= 3) return;      // more than 3 sounds in 350 ms would be noise
+          lastPlayed[name] = now;
+          recent.push(now);
+          SOUNDS[name](route(opts), c.currentTime + 0.01);
+        } catch (e) { /* audio is optional: never let it break an interaction */ }
+      }
+
+      function setListener(pos, fwd, up) {
+        if (!ctx || !spatial) return;
+        const l = ctx.listener;
+        try {
+          if (l.positionX) {
+            l.positionX.value = pos.x; l.positionY.value = pos.y; l.positionZ.value = pos.z;
+            l.forwardX.value = fwd.x; l.forwardY.value = fwd.y; l.forwardZ.value = fwd.z;
+            l.upX.value = up.x; l.upY.value = up.y; l.upZ.value = up.z;
+          } else {
+            l.setPosition(pos.x, pos.y, pos.z);
+            l.setOrientation(fwd.x, fwd.y, fwd.z, up.x, up.y, up.z);
+          }
+        } catch (e) {}
+      }
+
+      function savePrefs() { try { localStorage.setItem(SOUND_KEY, JSON.stringify(prefs)); } catch (e) {} }
+      function applyVolume() { if (master) master.gain.setTargetAtTime(prefs.on ? prefs.volume : 0, ctx.currentTime, 0.02); }
+
+      return {
+        play,
+        setBusy(v) { busy = !!v; },
+        setSpatial(v) { spatial = !!v; },
+        setListener,
+        get on() { return prefs.on; },
+        get volume() { return prefs.volume; },
+        setOn(v) { prefs.on = !!v; savePrefs(); applyVolume(); },
+        setVolume(v) { prefs.volume = Math.max(0, Math.min(1, v)); savePrefs(); applyVolume(); },
+        preview() { unlock(); setTimeout(() => { lastPlayed.signature = 0; play('signature'); }, 60); }
+      };
+    })();
+
+    const SCREENS = {
+      home: { title: 'Your orbit', left: ['Change Avatar', () => go('avatar')], tab: 'home' },
+      capture: { title: 'New thought', left: ['Cancel', () => cancelDraft()], tab: 'home' },
+      voice: { title: 'Voice thought', left: ['Cancel', () => cancelDraft()], tab: 'home' },
+      details: { title: 'Edit thought', left: ['Cancel', () => cancelDetails()], tab: 'home' },
+      revisit: { title: 'Revisit time', left: ['Cancel', () => back()], tab: 'home' },
+      library: { title: 'Library', left: ['Orbit', () => go('home', { reset: true })], tab: 'library' },
+      search: { title: 'Search', left: ['‹ Back', () => back()], tab: 'library' },
+      detail: { title: 'Thought detail', left: ['‹ Back', () => back()], tab: 'library' },
+      'ar-intro': { title: 'Try AR', left: ['‹ Back', () => back()], tab: 'home' },
+      'ar-place': { title: 'Try AR', left: ['‹ Back', () => exitToHome()], tab: 'home' },
+      'ar-orbit': { title: 'Pip in your space', left: ['Exit AR', () => exitToHome()], tab: 'home' },
+      settings: { title: 'Settings', left: null, tab: 'settings' },
+      avatar: { title: 'Change avatar', left: ['Cancel', () => back()], tab: null }
+    };
+
+    let current = 'home';
+    let params = {};
+    const navStack = [];
+
+    function go(name, opts = {}) {
+      if (opts.reset) navStack.length = 0;
+      else if (!opts.replace && name !== current) navStack.push({ name: current, params });
+      showScreen(name, opts.params || {});
+    }
+
+    function back() {
+      const prev = navStack.pop();
+      showScreen(prev ? prev.name : 'home', prev ? prev.params : {});
+    }
+
+    function showScreen(name, p) {
+      if (current === 'voice' && name !== 'voice') stopRecognition();
+      current = name;
+      params = p;
+      document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'screen-' + name; });
+      const meta = SCREENS[name];
+      const left = $('bar-left');
+      left.hidden = !meta.left;
+      if (meta.left) left.textContent = meta.left[0];
+      $('bar-title').textContent = typeof meta.title === 'function' ? meta.title() : meta.title;
+      $('tab-bar').hidden = !meta.tab;
+      document.querySelectorAll('[data-tab]').forEach(b => {
+        if (b.dataset.tab === meta.tab) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+      });
+      renderScreen();
+      attachStage();
+      const screen = $('screen-' + name);
+      screen.scrollTop = 0;
+    }
+
+    $('bar-left').addEventListener('click', () => SCREENS[current].left && SCREENS[current].left[1]());
+    document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => {
+      if (renderer.xr.isPresenting) return;
+      go(b.dataset.tab, { reset: true });
+    }));
+
+    function renderScreen() {
+      const r = RENDERERS[current];
+      if (r) r();
+    }
+
+    const RENDERERS = {
+      home: renderHome,
+      details: renderDetails,
+      revisit: renderRevisit,
+      library: renderLibrary,
+      search: renderSearch,
+      detail: renderDetail,
+      'ar-intro': renderAvatarArt,
+      'ar-place': renderAvatarArt,
+      'ar-orbit': renderArOrbit,
+      settings: renderSettings,
+      avatar: renderAvatarPicker
+    };
+
+    /* =====================================================================
+       01 Home
+       ===================================================================== */
+    function renderHome() {
+      const group = currentGroup();
+      const due = tasks.filter(isDue).length;
+      const total = orbitTasks().length;
+      const n = group.length;
+      let copy;
+      if (!total) copy = 'Nothing parked yet. Capture a thought to start your orbit.';
+      else if (due) copy = `${due} ${due === 1 ? 'thought is' : 'thoughts are'} back for you. Tap the glowing orb.`;
+      else copy = `${n} parked ${n === 1 ? 'thought' : 'thoughts'} in this group. Tap to open.`;
+      $('home-copy').textContent = copy;
+      $('home-groups').hidden = groupCount() < 2;
+      $('home-group-label').textContent = `All thoughts · Group ${groupIndex + 1} of ${groupCount()}`;
+      rebuildOrbit();
+    }
+
+    $('home-capture').addEventListener('click', () => startDraft());
+    $('home-ar').addEventListener('click', () => go('ar-intro'));
+    $('home-2d').addEventListener('click', () => { fitCamera(); });
+    document.querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => {
+      Sound.play('switch');
+      const count = groupCount();
+      groupIndex = (groupIndex + Number(b.dataset.group) + count) % count;
+      selectedId = null;
+      closeXRCard();
+      rebuildOrbit();
+      renderScreen();
+    }));
+
+    /* =====================================================================
+       02–05 Capture flow: text or voice → optional details → optional time
+       ===================================================================== */
+    let draft = null;
+
+    function startDraft() {
+      draft = { title: '', context: '', nextStep: '', project: '', remindAt: null };
+      $('capture-text').value = '';
+      go('capture');
+      setTimeout(() => $('capture-text').focus(), 50);
+    }
+
+    function cancelDraft() {
+      draft = null;
+      go('home', { reset: true });
+    }
+
+    function cancelDetails() {
+      if (params.editId) back();
+      else cancelDraft();
+    }
+
+    $('capture-next').addEventListener('click', () => {
+      const text = $('capture-text').value.trim();
+      if (!text) { $('capture-text').focus(); showToast('Type a thought first — just a few words is enough.'); return; }
+      draft.title = text;
+      Sound.play('capture');
+      go('details');
+    });
+    $('capture-text').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('capture-next').click(); }
+    });
+    $('capture-voice').addEventListener('click', () => {
+      $('voice-text').value = $('capture-text').value;
+      go('voice', { replace: true });
+      startRecognition();
+    });
+
+    // --- Voice (Web Speech API). Recognition runs in the browser; Pip stores only the text you keep.
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let recState = 'idle'; // idle | recording | paused
+    let recElapsed = 0;
+    let recTick = null;
+    let recBaseText = '';
+
+    function setRecUI() {
+      Sound.setBusy(recState === 'recording');
+      const panel = $('rec-panel');
+      panel.classList.toggle('recording', recState === 'recording');
+      $('rec-toggle').textContent = recState === 'recording' ? 'Pause' : 'Resume';
+      $('rec-toggle').disabled = !SpeechRecognition;
+      $('rec-stop').disabled = !SpeechRecognition || recState === 'idle';
+      const s = Math.floor(recElapsed / 1000);
+      $('rec-timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    }
+
+    function startRecognition() {
+      if (!SpeechRecognition) {
+        $('voice-note').textContent = 'Voice capture isn’t supported in this browser. Type in the transcript box instead.';
+        setRecUI();
+        return;
+      }
+      recBaseText = $('voice-text').value.trim();
+      Sound.play('voiceStart'); // plays before listening begins; nothing else sounds while recording
+      recognition = new SpeechRecognition();
+      recognition.lang = navigator.language || 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (e) => {
+        let text = '';
+        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+        $('voice-text').value = (recBaseText ? recBaseText + ' ' : '') + text.trim();
+      };
+      recognition.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          $('voice-note').textContent = 'Microphone access was blocked. You can type in the transcript box instead.';
+        } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
+          $('voice-note').textContent = 'Voice capture stopped. You can resume or type instead.';
+        }
+        pauseRecognition();
+      };
+      recognition.onend = () => { if (recState === 'recording') pauseRecognition(); };
+      try { recognition.start(); } catch (e) { return; }
+      recState = 'recording';
+      $('voice-note').textContent = 'Nothing is parked until you choose Park thought.';
+      const startedAt = performance.now() - recElapsed;
+      clearInterval(recTick);
+      recTick = setInterval(() => { recElapsed = performance.now() - startedAt; setRecUI(); }, 250);
+      setRecUI();
+    }
+
+    function pauseRecognition() {
+      clearInterval(recTick);
+      if (recognition) { recognition.onend = null; try { recognition.stop(); } catch (e) {} recognition = null; }
+      if (recState !== 'idle') recState = 'paused';
+      setRecUI();
+    }
+
+    function stopRecognition() {
+      pauseRecognition();
+      recState = 'idle';
+      recElapsed = 0;
+      setRecUI();
+    }
+
+    $('rec-toggle').addEventListener('click', () => {
+      if (recState === 'recording') { pauseRecognition(); Sound.play('voiceStop'); }
+      else startRecognition();
+    });
+    $('rec-stop').addEventListener('click', () => {
+      const wasRecording = recState === 'recording';
+      stopRecognition();
+      if (wasRecording) Sound.play('voiceStop');
+    });
+    $('voice-next').addEventListener('click', () => {
+      const text = $('voice-text').value.trim();
+      if (!text) { showToast('Nothing captured yet — speak or type a thought first.'); return; }
+      stopRecognition();
+      draft.title = text;
+      Sound.play('capture');
+      go('details');
+    });
+    $('voice-text-instead').addEventListener('click', () => {
+      $('capture-text').value = $('voice-text').value;
+      go('capture', { replace: true });
+    });
+
+    // --- 04 Details (new thought or editing an existing one)
+    function renderDetails() {
+      const editing = byId(params.editId);
+      const src = editing || draft || {};
+      $('d-title').value = src.title || '';
+      $('d-context').value = src.context || '';
+      $('d-next').value = src.nextStep || '';
+      $('d-project').value = src.project || '';
+      $('project-list').innerHTML = projects().map(p => `<option value="${esc(p)}">`).join('');
+      $('d-primary').textContent = editing ? 'Save changes' : 'Add Time';
+      $('d-secondary').textContent = editing ? 'Cancel' : 'Skip';
+    }
+
+    function readDetails(target) {
+      const title = $('d-title').value.trim();
+      if (!title) { $('d-title').focus(); showToast('A thought needs a few words.'); return false; }
+      target.title = title.slice(0, 280);
+      target.context = $('d-context').value.trim();
+      target.nextStep = $('d-next').value.trim();
+      target.project = $('d-project').value.trim();
+      return true;
+    }
+
+    $('d-primary').addEventListener('click', () => {
+      const editing = byId(params.editId);
+      if (editing) {
+        if (!readDetails(editing)) return;
+        saveTasks();
+        showToast('Changes saved.');
+        back();
+        return;
+      }
+      if (!readDetails(draft)) return;
+      go('revisit');
+    });
+    $('d-secondary').addEventListener('click', () => {
+      if (params.editId) { back(); return; }
+      if (!readDetails(draft)) return;
+      parkDraft();
+    });
+
+    function parkDraft() {
+      const t = normalizeTask({ id: Date.now().toString(), ...draft, completed: false });
+      tasks.push(t);
+      draft = null;
+      const idx = orbitTasks().findIndex(x => x.id === t.id);
+      groupIndex = Math.max(0, Math.floor(idx / ORBS_PER_GROUP));
+      if (saveTasks()) Sound.play('park');
+      if (t.remindAt) requestNotificationPermission();
+      go('home', { reset: true });
+      showToast(t.remindAt ? `Parked. Pip will bring it back ${formatWhen(t.remindAt)}.` : 'Parked. It’s orbiting safely around Pip.');
+      checkDueReminders();
+    }
+
+    // --- 05 Revisit time
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const toDateValue = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const toTimeValue = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+    function renderRevisit() {
+      const editing = byId(params.editId);
+      const ms = editing ? editing.remindAt : draft && draft.remindAt;
+      $('r-date').value = ms ? toDateValue(new Date(ms)) : '';
+      $('r-time').value = ms ? toTimeValue(new Date(ms)) : '';
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+      $('r-zone').textContent = `Device time zone · ${zone.replace(/_/g, ' ')}`;
+      $('r-primary').textContent = editing ? 'Save revisit time' : 'Park Thought';
+      $('r-secondary').hidden = !(editing && editing.remindAt);
+      updateRevisitNote();
+    }
+
+    function readRevisit() {
+      const d = $('r-date').value;
+      const t = $('r-time').value;
+      if (!d && !t) return null;
+      const ms = new Date(`${d || toDateValue(new Date())}T${t || '09:00'}`).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    }
+
+    function updateRevisitNote() {
+      const ms = readRevisit();
+      if (!ms) $('r-note').textContent = 'No reminder set. Pip resurfaces thoughts while it’s open in your browser.';
+      else if (ms <= Date.now()) $('r-note').textContent = 'That time has passed — Pip will bring it back right away.';
+      else $('r-note').textContent = `Pip will bring this back ${formatWhen(ms)}, while Pip is open in your browser.`;
+    }
+
+    $('r-date').addEventListener('input', updateRevisitNote);
+    $('r-time').addEventListener('input', updateRevisitNote);
+    document.querySelectorAll('[data-quick]').forEach(b => b.addEventListener('click', () => {
+      const d = new Date();
+      if (b.dataset.quick === 'later') {
+        d.setHours(d.getHours() + 3, 0, 0, 0);
+      } else {
+        d.setDate(d.getDate() + 1);
+        d.setHours(9, 0, 0, 0);
+      }
+      $('r-date').value = toDateValue(d);
+      $('r-time').value = toTimeValue(d);
+      updateRevisitNote();
+    }));
+
+    $('r-primary').addEventListener('click', () => {
+      const ms = readRevisit();
+      const editing = byId(params.editId);
+      if (editing) {
+        if (ms !== editing.remindAt) { editing.remindAt = ms; editing.notified = false; }
+        saveTasks();
+        if (ms) requestNotificationPermission();
+        showToast(ms ? `Pip will bring this back ${formatWhen(ms)}.` : 'Reminder removed.');
+        back();
+        checkDueReminders();
+        return;
+      }
+      draft.remindAt = ms;
+      parkDraft();
+    });
+    $('r-secondary').addEventListener('click', () => {
+      const editing = byId(params.editId);
+      if (!editing) return;
+      editing.remindAt = null;
+      editing.notified = false;
+      saveTasks();
+      showToast('Reminder removed.');
+      back();
+    });
+
+    /* =====================================================================
+       06–07 Library, search and filters
+       ===================================================================== */
+    const filters = { q: '', project: 'all', date: 'any', status: 'all' };
+    const projects = () => [...new Set(tasks.map(t => t.project).filter(Boolean))].sort();
+
+    function activeFilterCount() {
+      return (filters.project !== 'all') + (filters.date !== 'any') + (filters.status !== 'all');
+    }
+
+    function filtered() {
+      const q = filters.q.trim().toLowerCase();
+      const now = Date.now();
+      return tasks.filter(t => {
+        if (q && ![t.title, t.context, t.nextStep, t.project].some(f => f.toLowerCase().includes(q))) return false;
+        if (filters.project !== 'all' && t.project !== filters.project) return false;
+        if (filters.status !== 'all' && statusOf(t) !== filters.status) return false;
+        if (filters.date === 'today' && !sameDay(t.createdAt, now)) return false;
+        if (filters.date === '7' && now - t.createdAt > 7 * 864e5) return false;
+        if (filters.date === '30' && now - t.createdAt > 30 * 864e5) return false;
+        return true;
+      }).sort((a, b) => (isDue(b) - isDue(a)) || (b.createdAt - a.createdAt));
+    }
+
+    function thoughtRow(t) {
+      const st = statusOf(t);
+      const meta = st === 'completed' ? `Completed · ${shortDay(t.completedAt)}` : `${t.project || 'No project'} · ${shortDay(t.createdAt)}`;
+      const label = isDue(t) ? '⏰ Back' : STATUS[st].label;
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'thought-row';
+      row.innerHTML = `
+        <span class="orb-icon" aria-hidden="true"><img class="orb" src="assets/${STATUS[st].orb}" alt=""><img class="hl" src="assets/orb-highlight.svg" alt=""></span>
+        <span class="text"><span class="title">${esc(headline(t))}</span><span class="meta">${esc(meta)}</span></span>
+        <span class="status">${esc(label)}<b>›</b></span>`;
+      row.addEventListener('click', () => go('detail', { params: { id: t.id } }));
+      return row;
+    }
+
+    function fillList(el, list, emptyText) {
+      el.replaceChildren(...list.map(thoughtRow));
+      if (!list.length) el.innerHTML = `<div class="empty small">${esc(emptyText)}</div>`;
+    }
+
+    function renderLibrary() {
+      const list = filtered();
+      const n = activeFilterCount() + (filters.q ? 1 : 0);
+      $('lib-search-text').textContent = filters.q ? `“${filters.q}”` : 'Search';
+      $('lib-search-text').style.color = filters.q ? 'var(--text)' : '';
+      $('lib-caption').textContent = n
+        ? `${list.length} of ${tasks.length} shown · ${n} ${n === 1 ? 'filter' : 'filters'} applied`
+        : `${tasks.length} saved · All statuses`;
+      $('lib-clear').hidden = !n;
+      fillList($('lib-list'), list, tasks.length ? 'No thoughts match these filters.' : 'No thoughts yet. Capture one from your orbit.');
+    }
+
+    function renderSearch() {
+      $('s-query').value = filters.q;
+      const ps = projects();
+      $('f-project').innerHTML = `<option value="all">All</option>` + ps.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      if (filters.project !== 'all' && !ps.includes(filters.project)) filters.project = 'all';
+      $('f-project').value = filters.project;
+      $('f-date').value = filters.date;
+      $('f-status').value = filters.status;
+      updateSearchResults();
+    }
+
+    function updateSearchResults() {
+      const sel = (id) => $(id).options[$(id).selectedIndex]?.text || '';
+      $('f-project-label').textContent = `Project: ${sel('f-project')}   ›`;
+      $('f-date-label').textContent = `Date saved: ${sel('f-date')}   ›`;
+      $('f-status-label').textContent = `Status: ${sel('f-status')}   ›`;
+      const list = filtered();
+      const n = activeFilterCount();
+      $('s-caption').textContent = `${list.length} ${list.length === 1 ? 'result' : 'results'}${n ? ` · ${n} ${n === 1 ? 'filter' : 'filters'} applied` : ''}`;
+      fillList($('s-list'), list, 'Nothing matches yet. Try another word or clear a filter.');
+      const q = filters.q.trim();
+      $('s-match').textContent = q && list.length ? `“${q}” found in the thought, cues or project.` : '';
+      $('s-clear').hidden = !filters.q;
+    }
+
+    $('lib-clear').addEventListener('click', () => {
+      Object.assign(filters, { q: '', project: 'all', date: 'any', status: 'all' });
+      renderLibrary();
+    });
+    $('lib-search').addEventListener('click',() => { go('search'); setTimeout(() => $('s-query').focus(), 50); });
+    $('s-query').addEventListener('input', () => { filters.q = $('s-query').value; updateSearchResults(); });
+    $('s-clear').addEventListener('click', () => { filters.q = ''; $('s-query').value = ''; updateSearchResults(); $('s-query').focus(); });
+    ['project', 'date', 'status'].forEach(k => $('f-' + k).addEventListener('change', () => { filters[k] = $('f-' + k).value; updateSearchResults(); }));
+    $('s-done').addEventListener('click', () => back());
+
+    /* =====================================================================
+       08 Thought detail
+       ===================================================================== */
+    let deleteArmed = false;
+
+    function renderDetail() {
+      const t = byId(params.id);
+      if (!t) { back(); return; }
+      const st = statusOf(t);
+      const letter = orbLetter(t.id);
+      $('t-pill').textContent = (isDue(t) ? '⏰ Back for you' : STATUS[st].label) + (letter ? ` · Orb ${letter}` : '');
+      $('t-pill').className = 'pill' + (isDue(t) ? ' amber' : '');
+      $('t-title').textContent = headline(t);
+      $('t-body').textContent = t.title;
+      $('t-body').hidden = headline(t) === t.title;
+      const saved = new Date(t.createdAt);
+      $('t-saved').textContent = `Saved ${saved.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} · ${saved.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` + (t.project ? ` · ${t.project}` : '');
+      setInfo('t-context', t.context, 'Not added. What were you doing when this came up?');
+      setInfo('t-next', t.nextStep, 'Not added. What’s the tiniest step forward?');
+      $('t-remind').hidden = t.completed || t.archived;
+      $('t-remind').textContent = t.remindAt ? `Reminder: ${formatWhen(t.remindAt)}   ›` : 'Add a revisit time   ›';
+      $('t-start').hidden = t.completed || t.archived;
+      $('t-start').textContent = t.started ? '▷ In progress' : 'Start thought';
+      $('t-start').disabled = t.started;
+      $('t-complete').textContent = t.completed ? '↺ Back to orbit' : '✓ Complete';
+      $('t-complete').hidden = t.archived;
+      $('t-archive').textContent = t.archived ? '↺ Unarchive' : '□ Archive';
+      deleteArmed = false;
+      $('t-delete').textContent = 'Delete thought…';
+      $('t-glow').src = 'assets/' + (st === 'parked' ? 'glow-orb.svg' : STATUS[st].orb);
+    }
+
+    function setInfo(id, value, placeholder) {
+      $(id).textContent = value || placeholder;
+      $(id).style.color = value ? '' : 'var(--slate)';
+    }
+
+    const detailTask = () => byId(params.id);
+
+    $('t-remind').addEventListener('click', () => go('revisit', { params: { editId: params.id } }));
+    $('t-edit').addEventListener('click', () => go('details', { params: { editId: params.id } }));
+    $('t-start').addEventListener('click', () => {
+      const t = detailTask();
+      t.started = true;
+      t.notified = false;
+      if (t.remindAt && t.remindAt <= Date.now()) t.remindAt = null;
+      saveTasks();
+      showToast(t.nextStep ? `Started. First: ${t.nextStep}` : 'Started. It’s now marked active.');
+    });
+    $('t-complete').addEventListener('click', () => {
+      const t = detailTask();
+      if (t.completed) {
+        t.completed = false;
+        t.completedAt = null;
+        saveTasks();
+        showToast('Back in orbit.');
+      } else {
+        markTaskComplete(t.id);
+      }
+    });
+    $('t-archive').addEventListener('click', () => {
+      const t = detailTask();
+      t.archived = !t.archived;
+      if (t.archived) Sound.play('archive');
+      if (t.archived) { t.remindAt = null; t.notified = false; }
+      saveTasks();
+      showToast(t.archived ? 'Archived. Find it any time in the Library.' : 'Unarchived — back in your orbit.');
+    });
+    // Two-step delete with undo, so a thought is never lost by one mis-tap.
+    $('t-delete').addEventListener('click', () => {
+      if (!deleteArmed) {
+        deleteArmed = true;
+        $('t-delete').textContent = 'Tap again to delete for good';
+        return;
+      }
+      const index = tasks.findIndex(t => t.id === params.id);
+      if (index < 0) return;
+      const [removed] = tasks.splice(index, 1);
+      Sound.play('delete');
+      if (selectedId === removed.id) selectedId = null;
+      back();
+      saveTasks();
+      showToast(`Deleted “${headline(removed)}”.`, {
+        label: 'Undo',
+        run: () => { tasks.splice(Math.min(index, tasks.length), 0, removed); saveTasks(); }
+      });
+    });
+
+    function markTaskComplete(id) {
+      const task = byId(id);
+      if (!task) return;
+      task.completed = true;
+      task.completedAt = Date.now();
+      task.remindAt = null;
+      task.notified = false;
+      const at = orbWorld(id);
+      if (selectedId === id) { selectedId = null; closeXRCard(); }
+      saveTasks();
+      soundAt('complete', at);
+      showToast('✦ Done! That thought is now a star in your constellation.');
+    }
+
+    /* =====================================================================
+       Settings and avatars
+       ===================================================================== */
+    const AVATARS = [
+      { id: 'classic', name: 'Pip · Classic', sprite: true, card: { left: 49, top: 16, w: 158, h: 253 } },
+      { id: 'a02', name: 'Avatar 02', src: 'assets/avatar-02.png', card: { left: -16.5, top: -1.5, w: 290, h: 290 } },
+      { id: 'a03', name: 'Avatar 03', src: 'assets/avatar-03.png', card: { left: 7.5, top: 25.5, w: 236, h: 236 } },
+      { id: 'a04', name: 'Avatar 04', src: 'assets/avatar-04.png', card: { left: 11.5, top: 25.5, w: 236, h: 236 } },
+      { id: 'a05', name: 'Avatar 05', src: 'assets/avatar-05.png', card: { left: 10.5, top: 25.5, w: 236, h: 236 } }
+    ];
+    let avatarId = (() => { try { return localStorage.getItem(AVATAR_KEY) || 'classic'; } catch (e) { return 'classic'; } })();
+    if (!AVATARS.some(a => a.id === avatarId)) avatarId = 'classic';
+    const currentAvatar = () => AVATARS.find(a => a.id === avatarId);
+
+    // Screen 13: when the app opens, Pip lists what is waiting — reminders that are due first —
+    // in a sheet over Home. Show me in orbit opens "Pip in your space" with the top thought
+    // selected; Later closes it; tapping a row opens that thought.
+    function showBrief() {
+      const waiting = orbitTasks();
+      if (!waiting.length) return;
+      const n = waiting.length;
+      const due = waiting.filter(isDue).length;
+      $('brief-heading').textContent = `You have ${n} ${n === 1 ? 'thought' : 'thoughts'} waiting.`;
+      $('brief-sub').textContent = due
+        ? `${due} ${due === 1 ? 'is' : 'are'} back for you today. Here’s where you left off.`
+        : 'Here’s where you left off.';
+      const shown = waiting.slice(0, 3);
+      $('brief-list').replaceChildren(...shown.map(t => {
+        const row = thoughtRow(t);
+        row.addEventListener('click', () => { $('brief').hidden = true; }, { capture: true });
+        return row;
+      }));
+      const rest = n - shown.length;
+      $('brief-more').textContent = rest ? `+ ${rest} more in your orbit` : '';
+      $('brief-more').hidden = !rest;
+      $('brief-pip').innerHTML = avatarArtHTML(currentAvatar());
+      $('brief').hidden = false;
+    }
+    $('brief-later').addEventListener('click', () => { $('brief').hidden = true; });
+    $('brief').addEventListener('click', (e) => { if (e.target === $('brief')) $('brief').hidden = true; });
+    $('brief-show').addEventListener('click', () => {
+      $('brief').hidden = true;
+      const top = orbitTasks()[0];
+      groupIndex = 0;
+      selectedId = null;
+      go('ar-orbit');
+      if (top) selectOrb(top.id);
+    });
+
+    function avatarArtHTML(a) {
+      return a.sprite
+        ? `<div class="avatar-art sprite" style="position:absolute;inset:0"><img src="assets/avatar-sprite.png" alt=""></div>`
+        : `<div class="avatar-art contain" style="position:absolute;inset:0"><img src="${a.src}" alt=""></div>`;
+    }
+
+    function renderAvatarArt() {
+      document.querySelectorAll('[data-avatar-art]').forEach(el => { el.innerHTML = avatarArtHTML(currentAvatar()); });
+      if (current === 'ar-place') updatePlacePill(true);
+    }
+
+    let focusedAvatar = 0;
+    function renderAvatarPicker() {
+      const car = $('avatar-carousel');
+      car.innerHTML = AVATARS.map((a, i) => `
+        <button type="button" class="avatar-card${a.id === avatarId ? ' current' : ''}" data-i="${i}" aria-label="${esc(a.name)}">
+          <span class="slot">
+            <span class="avatar-art ${a.sprite ? 'sprite' : 'contain'}" style="left:${a.card.left}px;top:${a.card.top}px;width:${a.card.w}px;height:${a.card.h}px">
+              <img src="${a.sprite ? 'assets/avatar-sprite.png' : a.src}" alt="">
+            </span>
+          </span>
+          <span><span class="name">${esc(a.name)}</span><br><span class="sub">${a.id === avatarId ? '✓ Current avatar' : 'Tap to preview'}</span></span>
+        </button>`).join('');
+      $('avatar-dots').innerHTML = AVATARS.map(() => '<i></i>').join('');
+      focusedAvatar = Math.max(0, AVATARS.findIndex(a => a.id === avatarId));
+      car.querySelectorAll('.avatar-card').forEach(c => c.addEventListener('click', () => scrollToAvatar(Number(c.dataset.i))));
+      requestAnimationFrame(() => scrollToAvatar(focusedAvatar, 'instant'));
+      updateAvatarFocus();
+    }
+
+    function scrollToAvatar(i, behavior = 'smooth') {
+      const card = $('avatar-carousel').children[i];
+      if (!card) return;
+      const car = $('avatar-carousel');
+      car.scrollTo({ left: card.offsetLeft - (car.clientWidth - card.offsetWidth) / 2, behavior });
+      focusedAvatar = i;
+      updateAvatarFocus();
+    }
+
+    function updateAvatarFocus() {
+      [...$('avatar-dots').children].forEach((d, i) => d.classList.toggle('on', i === focusedAvatar));
+      [...$('avatar-carousel').children].forEach((c, i) => c.classList.toggle('focused', i === focusedAvatar));
+      $('avatar-pos').textContent = `${focusedAvatar + 1} of ${AVATARS.length}`;
+      const a = AVATARS[focusedAvatar];
+      $('avatar-select').textContent = a.id === avatarId ? 'Keep this avatar' : 'Select avatar';
+    }
+
+    $('avatar-carousel').addEventListener('scroll', () => {
+      const car = $('avatar-carousel');
+      const mid = car.scrollLeft + car.clientWidth / 2;
+      let best = 0, bestD = Infinity;
+      [...car.children].forEach((c, i) => {
+        const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      if (best !== focusedAvatar) { focusedAvatar = best; updateAvatarFocus(); }
+    }, { passive: true });
+
+    $('avatar-select').addEventListener('click', () => {
+      setAvatar(AVATARS[focusedAvatar].id);
+      back();
+      showToast(`${currentAvatar().name} is now your Pip.`);
+    });
+
+    function renderSoundSettings() {
+      $('set-sound-toggle').textContent = `Sound effects: ${Sound.on ? 'On' : 'Off'}`;
+      $('set-sound-toggle').setAttribute('aria-pressed', String(Sound.on));
+      $('set-sound-volume').value = Math.round(Sound.volume * 100);
+      $('set-sound-volume').disabled = !Sound.on;
+      $('set-sound-preview').disabled = !Sound.on;
+    }
+    $('set-sound-toggle').addEventListener('click', () => { Sound.setOn(!Sound.on); renderSoundSettings(); });
+    $('set-sound-volume').addEventListener('input', () => Sound.setVolume($('set-sound-volume').value / 100));
+    $('set-sound-volume').addEventListener('change', () => Sound.preview());
+    $('set-sound-preview').addEventListener('click', () => Sound.preview());
+
+    function renderSettings() {
+      renderSoundSettings();
+      $('set-avatar').textContent = `Avatar: ${currentAvatar().name}   ›`;
+      const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+      $('set-notify-copy').textContent = perm === 'granted'
+        ? 'Notifications are on. Pip alerts you when a revisit time arrives, as long as Pip is open in a browser tab.'
+        : perm === 'denied'
+          ? 'Notifications are blocked in this browser. Pip will still show reminders inside the app while it’s open.'
+          : perm === 'unsupported'
+            ? 'This browser can’t show notifications. Pip shows reminders inside the app while it’s open.'
+            : 'Allow notifications so Pip can alert you when a revisit time arrives. Pip must be open in a tab — there’s no background service.';
+      $('set-notify').hidden = perm !== 'default';
+      $('set-ar-copy').textContent = isARSupported
+        ? 'Room AR is available on this device. Hand pinch works on headsets that share hand tracking; touch and controllers always work.'
+        : 'Room AR isn’t available in this browser. It needs Chrome on an ARCore Android phone or a Quest headset. The 3D orbit works everywhere.';
+    }
+    $('set-avatar').addEventListener('click', () => go('avatar'));
+    $('set-notify').addEventListener('click', async () => {
+      if ('Notification' in window) { try { await Notification.requestPermission(); } catch (e) {} }
+      renderSettings();
+    });
+
+    /* =====================================================================
+       Three.js scene
+       ===================================================================== */
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 50);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.xr.enabled = true;
+
+    const ORBIT_TARGET = new THREE.Vector3(0, 0.62, 0);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.enableZoom = true;   // two-finger pinch or scroll wheel zooms in and out on Pip
+    controls.zoomSpeed = 0.8;
+    controls.target.copy(ORBIT_TARGET);
+
+    // Frame Pip, the orbit and the constellation inside whichever stage is showing.
+    function fitCamera() {
+      const aspect = camera.aspect || 1;
+      const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      // The big mixed-reality stage gets extra headroom so Pip's boots and the stars stay in view.
+      const halfV = stageEl && stageEl.id === 'wide-stage' ? 0.74 : 0.6;
+      const dist = Math.max(halfV / tanV, 0.68 / (tanV * aspect));
+      const elev = THREE.MathUtils.degToRad(12);
+      camera.position.set(0, ORBIT_TARGET.y + dist * Math.sin(elev), dist * Math.cos(elev));
+      controls.minDistance = dist * 0.3;
+      controls.maxDistance = dist * 1.8;
+      controls.target.copy(ORBIT_TARGET);
+      controls.update();
+    }
+
+    let stageEl = null;
+    // Large landscape windows (HoloLens slate / big virtual screen): one big stage on the right,
+    // shown on every screen, and the app column scaled to the window height.
+    const wideMQ = matchMedia('(min-width: 1000px) and (min-aspect-ratio: 4/3)');
+    const isWide = () => wideMQ.matches && !document.body.classList.contains('in-xr');
+    function updateUiZoom() {
+      // 874 px is the Figma phone frame; keep the column readable at 0.8× on small slates and
+      // let it grow up to 2.4× on very large ones.
+      const k = Math.max(0.8, Math.min(2.4, (window.innerHeight - 48) / 874));
+      document.documentElement.style.setProperty('--ui-zoom', k.toFixed(3));
+    }
+    updateUiZoom();
+    window.addEventListener('resize', updateUiZoom);
+    wideMQ.addEventListener('change', () => { stageEl = null; attachStage(); });
+
+    function attachStage() {
+      if (renderer.xr.isPresenting) return;
+      const next = isWide() ? $('wide-stage')
+        : current === 'home' ? $('home-stage') : current === 'ar-orbit' ? $('ar-stage') : null;
+      if (next === stageEl) { resizeStage(); return; }
+      stageEl = next;
+      renderer.domElement.classList.remove('parked', 'xr-canvas');
+      if (stageEl) {
+        stageEl.appendChild(renderer.domElement);
+        resizeStage();
+        fitCamera();
+      } else {
+        // Keep the canvas on the page (hidden) instead of removing it: AR browsers that draw
+        // through the page canvas can't reopen the camera if it has been taken out.
+        renderer.domElement.classList.add('parked');
+        document.body.prepend(renderer.domElement);
+      }
+    }
+
+    // As in the first deployment, AR draws on a full-screen canvas at full pixel density.
+    // Inside the small orbit box it was stretched across the whole screen and looked blurry.
+    function useFullScreenCanvas() {
+      stageEl = null;
+      renderer.domElement.classList.remove('parked');
+      renderer.domElement.classList.add('xr-canvas');
+      document.body.prepend(renderer.domElement);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function resizeStage() {
+      if (!stageEl || renderer.xr.isPresenting) return;
+      const w = stageEl.clientWidth, h = stageEl.clientHeight;
+      if (!w || !h) return;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    const stageResize = new ResizeObserver(() => { resizeStage(); fitCamera(); });
+    stageResize.observe($('screens'));
+    stageResize.observe($('wide-stage'));
+
+    // High Brightness Lighting Pipeline
+    scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.6);
+    dirLight.position.set(1, 4, 2);
+    scene.add(dirLight);
+    const rimLight = new THREE.DirectionalLight(0xff7edb, 1.2);
+    rimLight.position.set(-2, 1.5, -2);
+    scene.add(rimLight);
+
+    const glowTexture = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const g = c.getContext('2d');
+      const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.25, 'rgba(255,255,255,0.5)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 128, 128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    })();
+
+    // Reticle for hit-test surface placement
+    const reticle = new THREE.Mesh(
+      new THREE.RingGeometry(0.12, 0.15, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x00d1c1, side: THREE.DoubleSide })
+    );
+    reticle.matrixAutoUpdate = false;
+    reticle.visible = false;
+    scene.add(reticle);
+    // Fills the ring while an open palm is held still, so the viewer sees placement coming.
+    const reticleFill = new THREE.Mesh(
+      new THREE.CircleGeometry(0.11, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x00d1c1, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+    );
+    reticleFill.visible = false;
+    reticle.add(reticleFill);
+
+    const placementGroup = new THREE.Group();
+    scene.add(placementGroup);
+
+    const pipModelGroup = new THREE.Group();
+    placementGroup.add(pipModelGroup);
+
+    const orbitGroup = new THREE.Group();
+    orbitGroup.position.set(0, 0.6, 0);
+    placementGroup.add(orbitGroup);
+
+    // Dashed orbit path, matching the Figma orbit ellipse (Light Purple, 50%, dash 4/8)
+    const orbitPath = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(
+        Array.from({ length: 128 }, (_, i) => {
+          const a = (i / 128) * Math.PI * 2;
+          return new THREE.Vector3(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55);
+        })
+      ),
+      new THREE.LineDashedMaterial({ color: 0xb794f6, transparent: true, opacity: 0.5, dashSize: 0.012, gapSize: 0.024 })
+    );
+    orbitPath.computeLineDistances();
+    orbitGroup.add(orbitPath);
+
+    const completedStarsGroup = new THREE.Group();
+    completedStarsGroup.position.set(0, 1.05, -0.15);
+    placementGroup.add(completedStarsGroup);
+
+    // 100% Reliable Procedural Astronaut
+    function buildEmbeddedPip() {
+      const group = new THREE.Group();
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.35, metalness: 0.05 });
+      const visorMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.05, metalness: 0.9, emissive: 0x0c4a6e, emissiveIntensity: 0.6 });
+      const purpleMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, roughness: 0.3 });
+      const glowMat = new THREE.MeshBasicMaterial({ color: 0xff7edb });
+
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.16, 12, 24), suitMat);
+      body.position.y = 0.24;
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 32, 24), suitMat);
+      helmet.position.y = 0.52;
+      const visor = new THREE.Mesh(new THREE.SphereGeometry(0.115, 32, 24), visorMat);
+      visor.scale.set(1.05, 0.78, 0.6);
+      visor.position.set(0, 0.53, 0.085);
+      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.08, 8), purpleMat);
+      antenna.position.set(0, 0.7, 0);
+      const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.022, 16, 16), glowMat);
+      antennaTip.position.set(0, 0.75, 0);
+      const pack = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.24, 0.1), purpleMat);
+      pack.position.set(0, 0.28, -0.16);
+      const armGeo = new THREE.CapsuleGeometry(0.045, 0.1, 6, 12);
+      const armL = new THREE.Mesh(armGeo, suitMat);
+      armL.position.set(-0.18, 0.27, 0);
+      armL.rotation.z = -0.35;
+      const armR = new THREE.Mesh(armGeo, suitMat);
+      armR.position.set(0.18, 0.27, 0);
+      armR.rotation.z = 0.35;
+      const bootGeo = new THREE.CapsuleGeometry(0.05, 0.03, 6, 12);
+      const bootL = new THREE.Mesh(bootGeo, purpleMat);
+      bootL.position.set(-0.07, 0.04, 0.01);
+      const bootR = new THREE.Mesh(bootGeo, purpleMat);
+      bootR.position.set(0.07, 0.04, 0.01);
+
+      group.add(body, helmet, visor, antenna, antennaTip, pack, armL, armR, bootL, bootR);
+      group.userData.antennaTip = antennaTip;
+      return group;
+    }
+
+    // Attach embedded Pip model immediately
+    let activePipMesh = buildEmbeddedPip();
+    pipModelGroup.add(activePipMesh);
+
+    // Async GLTF loader check: ./pip.glb, then the remote astronaut, else keep the procedural Pip.
+    const loader = new GLTFLoader();
+    const remoteAstronautURL = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
+
+    // Scale any loaded model to Pip's height and stand it on the ground, whatever its native units.
+    function fitModel(model, targetHeight = 0.8) {
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      if (size.y > 0) model.scale.multiplyScalar(targetHeight / size.y);
+      box.setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.x -= center.x;
+      model.position.z -= center.z;
+      model.position.y -= box.min.y;
+    }
+
+    function tryLoadGLTF(url) {
+      loader.load(url, (gltf) => {
+        pipModelGroup.remove(activePipMesh);
+        activePipMesh = gltf.scene;
+        fitModel(activePipMesh);
+        pipModelGroup.add(activePipMesh);
+        applyAvatar();
+      }, undefined, () => {
+        if (url !== remoteAstronautURL) tryLoadGLTF(remoteAstronautURL);
+      });
+    }
+    tryLoadGLTF('./pip.glb');
+
+    // Non-classic avatars are 2D artwork from the design, shown as a billboard where Pip stands.
+    // An upright card that turns to face the viewer (yaw only), so it stands on a table in AR
+    // like the 3D Pip does. It stays hidden until its image has loaded.
+    const avatarSprite = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.05, side: THREE.DoubleSide })
+    );
+    avatarSprite.visible = false;
+    pipModelGroup.add(avatarSprite);
+    const textureLoader = new THREE.TextureLoader();
+    const avatarTextures = {};
+
+    function applyAvatar() {
+      const a = currentAvatar();
+      activePipMesh.visible = !!a.sprite;
+      avatarSprite.visible = false;
+      if (a.sprite) return;
+      const show = (tex) => {
+        if (currentAvatar().id !== a.id) return;
+        avatarSprite.material.map = tex;
+        avatarSprite.material.needsUpdate = true;
+        const h = 0.85;
+        avatarSprite.scale.set(h * tex.image.width / tex.image.height, h, 1);
+        avatarSprite.position.y = h / 2;
+        avatarSprite.visible = true;
+      };
+      if (avatarTextures[a.id]) { show(avatarTextures[a.id]); return; }
+      textureLoader.load(a.src, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        avatarTextures[a.id] = tex;
+        show(tex);
+      });
+    }
+
+    function setAvatar(id) {
+      avatarId = id;
+      try { localStorage.setItem(AVATAR_KEY, avatarId); } catch (e) {}
+      applyAvatar();
+    }
+
+    /* ---------- Orb artwork: the Figma orb, drawn into sprite textures ---------- */
+    const loadImage = (src) => new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+    const orbArt = {};
+    const artReady = Promise.all([
+      loadImage('assets/orb-pink.svg').then(i => orbArt.orb = i),
+      loadImage('assets/orb-selected.svg').then(i => orbArt.selected = i),
+      loadImage('assets/selection-ring.svg').then(i => orbArt.ring = i),
+      loadImage('assets/orb-highlight.svg').then(i => orbArt.highlight = i),
+      Promise.race([
+        Promise.all(['500 40px Montserrat', '600 43px Montserrat', '700 40px Montserrat'].map(f => document.fonts.load(f))),
+        new Promise(r => setTimeout(r, 1500))
+      ])
+    ]);
+
+    // Canvas is the orb's 108px Figma frame at 256px: the 52px orb sits centred with its glow around it.
+    const ORB_PX = 256, ORB_SCALE = 256 / 108;
+    function orbTexture({ letter, selected, due }) {
+      const c = document.createElement('canvas');
+      c.width = c.height = ORB_PX;
+      const g = c.getContext('2d');
+      const mid = ORB_PX / 2;
+      if (selected && orbArt.selected) {
+        const s = 111 * ORB_SCALE;
+        g.drawImage(orbArt.selected, mid - s / 2, mid - s / 2, s, s);
+      } else if (orbArt.orb) {
+        g.drawImage(orbArt.orb, 0, 0, ORB_PX, ORB_PX);
+      }
+      if (selected && orbArt.ring) {
+        const s = 69.5 * ORB_SCALE;
+        g.drawImage(orbArt.ring, mid - s / 2, mid - s / 2, s, s);
+      }
+      if (due) {
+        g.strokeStyle = '#FBBF24';
+        g.lineWidth = 5;
+        g.beginPath();
+        g.arc(mid, mid, 36 * ORB_SCALE, 0, Math.PI * 2);
+        g.stroke();
+      }
+      const orbLeft = mid - 26 * ORB_SCALE;
+      if (orbArt.highlight) g.drawImage(orbArt.highlight, orbLeft + 10 * ORB_SCALE, orbLeft + 8 * ORB_SCALE, 16 * ORB_SCALE, 10 * ORB_SCALE);
+      if (letter) {
+        g.fillStyle = '#0F0D1F';
+        g.font = `600 ${Math.round(18 * ORB_SCALE)}px Montserrat, sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(letter, mid, mid + 2);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function labelTexture(text, selected) {
+      const c = document.createElement('canvas');
+      const W = 400, H = selected ? 150 : 76;
+      c.width = W; c.height = H;
+      const g = c.getContext('2d');
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = '500 40px Montserrat, sans-serif';
+      let s = text;
+      while (g.measureText(s).width > W - 20 && s.length > 4) s = s.slice(0, -2);
+      if (s !== text) s = s.trimEnd() + '…';
+      g.shadowColor = 'rgba(15,13,31,0.9)';
+      g.shadowBlur = 8;
+      g.fillStyle = '#E9E7FF';
+      g.fillText(s, W / 2, 38);
+      if (selected) {
+        g.shadowBlur = 0;
+        g.font = '500 34px Montserrat, sans-serif';
+        const label = '✓ Selected';
+        const w = g.measureText(label).width + 56;
+        const x = (W - w) / 2, y = 84, h = 58;
+        g.beginPath();
+        g.roundRect ? g.roundRect(x, y, w, h, 29) : g.rect(x, y, w, h);
+        g.fillStyle = 'rgba(26,19,51,0.9)';
+        g.fill();
+        g.lineWidth = 4;
+        g.strokeStyle = '#00D1C1';
+        g.stroke();
+        g.fillStyle = '#E9E7FF';
+        g.fillText(label, W / 2, y + h / 2 + 1);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return { tex, aspect: W / H };
+    }
+
+    const orbs = [];      // orb groups in the orbit
+    const orbHits = [];   // invisible spheres used for picking
+    const starObjects = [];
+    const orbHitGeo = new THREE.SphereGeometry(0.085, 12, 12);
+    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    const noRaycast = () => {};
+
+    function disposeSprite(s) {
+      if (s.material.map) s.material.map.dispose();
+      s.material.dispose();
+    }
+
+    // Sizes in AR are set relative to the astronaut's height (0.8 m), so they keep their
+    // proportions next to Pip at any zoom.
+    const PIP_HEIGHT = 0.8;
+    // First-deployment AR orb: diameter is 1/6 of Pip's height (≈ 13.3 cm).
+    const AR_ORB_R = PIP_HEIGHT / 6 / 2;
+    const AR_ORB_SELECTED = 1.2; // a selected orb grows slightly so it reads as chosen
+    const arOrbGeo = new THREE.SphereGeometry(AR_ORB_R, 48, 48);
+
+    function rebuildOrbit() {
+      orbs.forEach(o => {
+        o.children.forEach(c => {
+          if (c.isSprite) disposeSprite(c);
+          else if (c.isMesh && c.material !== hitMat) c.material.dispose();
+        });
+        orbitGroup.remove(o);
+      });
+      orbs.length = 0;
+      orbHits.length = 0;
+      hoveredOrb = null;
+
+      const group = currentGroup();
+      if (selectedId && !group.some(t => t.id === selectedId)) { selectedId = null; closeXRCard(); }
+      const showLetters = current === 'ar-orbit';
+      const angleStep = (Math.PI * 2) / Math.max(group.length, 1);
+
+      group.forEach((task, index) => {
+        const angle = index * angleStep;
+        const radius = 0.55;
+        const selected = task.id === selectedId;
+        const due = isDue(task);
+
+        const orb = new THREE.Group();
+        const basePos = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+        orb.position.copy(basePos);
+
+        // In the live camera view, orbs look as they did in the first deployment: glowing 3D
+        // spheres with no text. The Figma orb artwork and labels are used everywhere else.
+        if (renderer.xr.isPresenting) {
+          const sphere = new THREE.Mesh(arOrbGeo, new THREE.MeshStandardMaterial({
+            color: due ? 0xfcd34d : 0xc084fc,
+            emissive: due ? 0xd97706 : 0x7e22ce,
+            emissiveIntensity: selected ? 1.8 : selectedId ? 0.25 : 0.9,
+            roughness: 0.1,
+            transparent: true,
+            opacity: selectedId && !selected ? 0.28 : 1,
+            depthWrite: false
+          }));
+          sphere.userData = { id: task.id, type: 'orb' };
+          const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: glowTexture, color: due ? 0xfbbf24 : 0xc084fc,
+            transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+            opacity: selectedId && !selected ? 0.3 : 1
+          }));
+          glow.scale.setScalar(0.42 * AR_ORB_R / 0.08);
+          glow.raycast = noRaycast;
+          orb.add(sphere, glow);
+          orb.userData = { id: task.id, basePos, phase: index * 1.7, due, baseScale: selected ? AR_ORB_SELECTED : selectedId ? 0.9 : 1 };
+          orbitGroup.add(orb);
+          orbs.push(orb);
+          orbHits.push(sphere);
+          return;
+        }
+
+        const art = new THREE.Sprite(new THREE.SpriteMaterial({ map: orbTexture({ letter: showLetters ? LETTERS[index] : '', selected, due }), transparent: true, depthWrite: false }));
+        art.scale.setScalar(0.15 * 108 / 52);
+        art.raycast = noRaycast;
+
+        const { tex, aspect } = labelTexture(headline(task), selected && showLetters);
+        const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        const lw = 0.5;
+        label.scale.set(lw, lw / aspect, 1);
+        label.center.set(0.5, 1);
+        label.position.y = -0.085;
+        label.raycast = noRaycast;
+
+        const hit = new THREE.Mesh(orbHitGeo, hitMat);
+        hit.userData = { id: task.id, type: 'orb' };
+
+        orb.add(art, label, hit);
+        orb.userData = { id: task.id, basePos, phase: index * 1.7, due };
+        orbitGroup.add(orb);
+        orbs.push(orb);
+        orbHits.push(hit);
+      });
+
+      if (selectedId && xrCard.visible) positionXRCard();
+    }
+
+    /* ---------- Completed constellation ---------- */
+    function seededRandom(str) {
+      let h = 2166136261;
+      for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+      return () => {
+        h = Math.imul(h ^ (h >>> 15), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        h ^= h >>> 16;
+        return (h >>> 0) / 4294967296;
+      };
+    }
+
+    const starGeo = new THREE.SphereGeometry(0.022, 12, 12);
+    const starHitGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    let constellationLine = null;
+
+    function buildConstellation() {
+      starObjects.forEach(s => {
+        s.children.forEach(c => { if (c.material && c.material !== hitMat) c.material.dispose(); });
+        completedStarsGroup.remove(s);
+      });
+      starObjects.length = 0;
+      if (constellationLine) {
+        constellationLine.geometry.dispose();
+        constellationLine.material.dispose();
+        completedStarsGroup.remove(constellationLine);
+        constellationLine = null;
+      }
+
+      const done = tasks.filter(t => t.completed && !t.archived).sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
+      const points = [];
+      done.forEach((task, i) => {
+        const rand = seededRandom(task.id);
+        const angle = i * 2.39996; // golden angle spreads stars evenly as the sky fills
+        const r = Math.min(0.8, 0.15 * Math.sqrt(i + 1));
+        const pos = new THREE.Vector3(Math.sin(angle) * r, rand() * 0.2, Math.cos(angle) * r * 0.35);
+
+        const star = new THREE.Group();
+        star.position.copy(pos);
+        const core = new THREE.Mesh(starGeo, new THREE.MeshBasicMaterial({ color: 0xfff1c1 }));
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: glowTexture, color: 0xffc9f2, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+        }));
+        glow.scale.setScalar(0.16);
+        glow.raycast = noRaycast;
+        const hit = new THREE.Mesh(starHitGeo, hitMat);
+        hit.userData = { id: task.id, type: 'star' };
+        star.add(core, glow, hit);
+        star.userData = { phase: rand() * Math.PI * 2, hit };
+        completedStarsGroup.add(star);
+        starObjects.push(star);
+        points.push(pos);
+      });
+
+      if (points.length > 1) {
+        constellationLine = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(points),
+          new THREE.LineBasicMaterial({ color: 0xb794f6, transparent: true, opacity: 0.45 })
+        );
+        completedStarsGroup.add(constellationLine);
+      }
+    }
+
+    /* ---------- 3D task card (immersive AR) ---------- */
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function wrapLines(ctx, text, maxWidth, maxLines) {
+      const words = String(text).split(/\s+/).filter(Boolean);
+      const lines = [];
+      let line = '';
+      let used = 0;
+      for (const word of words) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+          if (lines.length === maxLines) break;
+        } else {
+          line = test;
+        }
+        used++;
+      }
+      if (lines.length < maxLines && line) lines.push(line);
+      if (used < words.length || ctx.measureText(lines[lines.length - 1] || '').width > maxWidth) {
+        let last = lines[lines.length - 1] || '';
+        while (last && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
+        lines[lines.length - 1] = last + '…';
+      }
+      return lines;
+    }
+
+    // Drawn at 2x; layout stays in 512x320 units so the UV hit regions below match.
+    // Panel colours for 3D UI: the usual deep purple, or a brighter one on see-through displays.
+    const panelFill = () => additiveDisplay ? '#5B3FA8' : 'rgba(26, 19, 51, 0.96)';
+    const buttonFill = () => additiveDisplay ? '#7C5CD6' : 'rgba(26, 19, 51, 0.9)';
+
+    function create3DCardTexture(task) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 640;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(2, 2);
+
+      drawRoundedRect(ctx, 10, 10, 492, 300, 32);
+      ctx.fillStyle = panelFill();
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = isDue(task) ? '#FBBF24' : '#B794F6';
+      ctx.stroke();
+
+      ctx.fillStyle = '#F5F4FF';
+      ctx.font = '700 22px Montserrat, sans-serif';
+      wrapLines(ctx, headline(task), 390, 2).forEach((l, i) => ctx.fillText(l, 32, 50 + i * 26));
+
+      if (task.remindAt) {
+        ctx.fillStyle = '#FBBF24';
+        ctx.font = '600 12px Montserrat, sans-serif';
+        ctx.fillText((isDue(task) ? 'PIP BROUGHT THIS BACK · ' : 'REMINDER · ') + formatWhen(task.remindAt).toUpperCase(), 32, 100);
+      }
+
+      ctx.fillStyle = '#B794F6';
+      ctx.font = '600 13px Montserrat, sans-serif';
+      ctx.fillText('WHAT I WAS DOING', 32, 122);
+      ctx.fillStyle = '#C9C6E3';
+      ctx.font = '400 15px Montserrat, sans-serif';
+      wrapLines(ctx, task.context || 'No context saved yet.', 448, 2).forEach((l, i) => ctx.fillText(l, 32, 142 + i * 18));
+
+      ctx.fillStyle = '#4EE6D6';
+      ctx.font = '600 13px Montserrat, sans-serif';
+      ctx.fillText('SMALLEST NEXT ACTION', 32, 186);
+      ctx.fillStyle = '#F5F4FF';
+      ctx.font = '600 15px Montserrat, sans-serif';
+      wrapLines(ctx, task.nextStep || 'No next step defined.', 448, 2).forEach((l, i) => ctx.fillText(l, 32, 206 + i * 18));
+
+      drawRoundedRect(ctx, 32, 236, 130, 44, 22);
+      const grad = ctx.createLinearGradient(32, 0, 162, 0);
+      grad.addColorStop(0, '#7C3AED');
+      grad.addColorStop(1, '#00D1C1');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.fillStyle = '#F5F4FF';
+      ctx.font = '600 14px Montserrat, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('✓ Complete', 97, 263);
+
+      // Editing needs a keyboard, which headsets can't show inside the hologram.
+      if (!headsetMode) {
+        drawRoundedRect(ctx, 176, 236, 130, 44, 22);
+        ctx.fillStyle = 'rgba(26, 19, 51, 0.85)';
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#B794F6';
+        ctx.stroke();
+        ctx.fillStyle = '#E9E7FF';
+        ctx.fillText('Edit details', 241, 263);
+      }
+
+      // Larger ✕ close button; its tap area is the card's whole top-right corner.
+      drawRoundedRect(ctx, 428, 18, 58, 58, 29);
+      ctx.fillStyle = buttonFill();
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#B794F6';
+      ctx.stroke();
+      ctx.fillStyle = '#F5F4FF';
+      ctx.font = '600 26px Montserrat, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✕', 457, 48);
+      ctx.textBaseline = 'alphabetic';
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 4;
+      return texture;
+    }
+
+    // Task card about 55% of Pip's height wide (≈ 44 × 27.5 cm, same 512:320 layout).
+    // Drawn on top so it never cuts into Pip.
+    const CARD_W = PIP_HEIGHT * 0.55, CARD_H = CARD_W * 320 / 512;
+    const xrCard = new THREE.Mesh(
+      new THREE.PlaneGeometry(CARD_W, CARD_H),
+      new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false })
+    );
+    xrCard.renderOrder = 10;
+    xrCard.visible = false;
+    xrCard.userData = { type: 'card' };
+    orbitGroup.add(xrCard);
+
+    // Orb radius: the Figma orb, or the first-deployment AR sphere at its selected size.
+    const orbRadius = () => renderer.xr.isPresenting ? AR_ORB_R * AR_ORB_SELECTED : 0.075;
+    const PIP_HALF_W = 0.22;   // half the astronaut's width at normal size
+    const CARD_GAP = 0.04;
+
+    // The card sits just above the selected orb (the orb itself doesn't move). If that spot
+    // would cover the astronaut — whose size changes with pinch-zoom — the card takes the
+    // smaller of two moves: out to the side past Pip, or up above Pip's helmet.
+    // Worked out in the orbit's own frame, as seen from the viewer's direction.
+    function getFocusPositions() {
+      const camLocal = new THREE.Vector3();
+      getViewCamera().getWorldPosition(camLocal);
+      orbitGroup.worldToLocal(camLocal);
+      const toCam = new THREE.Vector3(camLocal.x, 0, camLocal.z);
+      if (toCam.lengthSq() < 1e-6) toCam.set(0, 0, 1);
+      toCam.normalize();
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toCam);
+
+      const orb = orbs.find(o => o.userData.id === selectedId);
+      const p = orb ? orb.position : new THREE.Vector3();
+      let x = p.dot(right);                                  // sideways, as the viewer sees it
+      let y = p.y + orbRadius() + CARD_GAP + CARD_H / 2;           // just above the orb
+
+      // In the orbit's own frame Pip is always the same size (pinch scales everything together).
+      const pipHalf = PIP_HALF_W + CARD_GAP;                 // Pip's silhouette, with a margin
+      const pipTop = 0.88 - orbitGroup.position.y + CARD_GAP;
+      const coversPip = Math.abs(x) - CARD_W / 2 < pipHalf && y - CARD_H / 2 < pipTop;
+      if (coversPip) {
+        const side = x >= 0 ? 1 : -1;
+        const sideX = side * (pipHalf + CARD_W / 2);
+        const upY = pipTop + CARD_H / 2;
+        if (Math.abs(sideX - x) <= upY - y) x = sideX;
+        else y = upY;
+      }
+
+      const card = right.clone().multiplyScalar(x)
+        .addScaledVector(toCam, Math.max(p.dot(toCam), 0) + 0.05);
+      card.y = y;
+      return { card };
+    }
+
+    function open3DTaskCard(id) {
+      const task = byId(id);
+      if (!task) return;
+      if (xrCard.material.map) xrCard.material.map.dispose();
+      xrCard.material.map = create3DCardTexture(task);
+      xrCard.material.needsUpdate = true;
+      xrCard.userData.id = id;
+      xrCard.visible = true;
+      positionXRCard();
+    }
+
+    // Only the card moves into view; the selected orb stays where it is in the orbit.
+    function positionXRCard() {
+      xrCard.position.copy(getFocusPositions().card);
+    }
+
+    function closeXRCard() {
+      xrCard.visible = false;
+    }
+
+    /* ---------- Headset controls (no 2D overlay): 3D button bar and welcome bubble ---------- */
+    function makePanelTexture(w, h, draw) {
+      const c = document.createElement('canvas');
+      c.width = w * 4; c.height = h * 4;
+      const g = c.getContext('2d');
+      g.scale(4, 4);
+      draw(g, w, h);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
+      return t;
+    }
+    function panelMesh(wm, hm, userData) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(wm, hm),
+        new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
+      m.renderOrder = 11;
+      m.userData = userData;
+      return m;
+    }
+    function setPanelTexture(mesh, tex) {
+      if (mesh.material.map) mesh.material.map.dispose();
+      mesh.material.map = tex;
+      mesh.material.needsUpdate = true;
+    }
+    function drawPill(g, x, y, w, h, label, primary, size = 20) {
+      drawRoundedRect(g, x, y, w, h, h / 2);
+      if (primary) {
+        const gr = g.createLinearGradient(x, 0, x + w, 0);
+        gr.addColorStop(0, '#7C3AED');
+        gr.addColorStop(1, '#00D1C1');
+        g.fillStyle = gr;
+      } else {
+        g.fillStyle = buttonFill();
+      }
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = '#B794F6';
+      g.stroke();
+      g.fillStyle = '#F5F4FF';
+      g.font = `600 ${size}px Montserrat, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(label, x + w / 2, y + h / 2 + 1);
+    }
+
+    // Button bar floating in front of Pip: Exit, Pause/Resume, smaller, bigger.
+    const xrHud = new THREE.Group();
+    xrHud.visible = false;
+    scene.add(xrHud);
+    const HUD_BTN_W = 0.13, HUD_BTN_H = 0.055, HUD_GAP = 0.015;
+    const hudActions = [
+      { act: 'exit', label: () => 'Exit' },
+      { act: 'pause', label: () => isOrbitPaused ? '▶ Resume' : 'II Pause' },
+      { act: 'smaller', label: () => '−' },
+      { act: 'bigger', label: () => '+' }
+    ];
+    const hudButtons = hudActions.map((a, i) => {
+      const m = panelMesh(HUD_BTN_W, HUD_BTN_H, { type: 'hud', act: a.act });
+      m.position.x = (i - (hudActions.length - 1) / 2) * (HUD_BTN_W + HUD_GAP);
+      xrHud.add(m);
+      return m;
+    });
+    function renderHud() {
+      hudButtons.forEach((m, i) => setPanelTexture(m, makePanelTexture(130, 55, (g, w, h) => drawPill(g, 2, 2, w - 4, h - 4, hudActions[i].label(), false))));
+    }
+
+    // Welcome bubble above Pip's helmet (Figma Screen 14, as a 3D panel).
+    const BUBBLE_W = 0.44, BUBBLE_H = BUBBLE_W * 150 / 330;
+    const xrBubble = panelMesh(BUBBLE_W, BUBBLE_H, { type: 'bubble' });
+    xrBubble.visible = false;
+    scene.add(xrBubble);
+    let headsetWelcomePending = false;
+    function showXRBubble() {
+      const n = orbitTasks().length;
+      xrBubble.userData.hasShow = n > 0;
+      setPanelTexture(xrBubble, makePanelTexture(330, 150, (g, w, h) => {
+        drawRoundedRect(g, 2, 2, w - 4, h - 4, 20);
+        g.fillStyle = panelFill();
+        g.fill();
+        g.lineWidth = 2;
+        g.strokeStyle = '#B794F6';
+        g.stroke();
+        g.fillStyle = '#F5F4FF';
+        g.font = '600 20px Montserrat, sans-serif';
+        g.textAlign = 'left';
+        g.textBaseline = 'alphabetic';
+        g.fillText('Welcome back! 👋', 22, 40);
+        g.fillStyle = '#E9E7FF';
+        g.font = '400 14px Montserrat, sans-serif';
+        g.fillText(n ? `${n} ${n === 1 ? 'thought is' : 'thoughts are'} orbiting me.` : 'Nothing is orbiting me yet.', 22, 68);
+        if (n) {
+          drawPill(g, 22, 92, 136, 40, 'Not yet', false, 16);
+          drawPill(g, 172, 92, 136, 40, 'Show me', true, 16);
+        } else {
+          drawPill(g, 22, 92, 286, 40, 'Got it', false, 16);
+        }
+      }));
+      xrBubble.visible = true;
+    }
+
+    // Keep the button bar in front of Pip's knees and the bubble above the helmet, facing the viewer.
+    const uiBase = new THREE.Vector3();
+    const uiToCam = new THREE.Vector3();
+    function placeHeadsetUi() {
+      getViewCamera().getWorldPosition(camWorld);
+      placementGroup.getWorldPosition(uiBase);
+      uiToCam.copy(camWorld).sub(uiBase);
+      uiToCam.y = 0;
+      if (uiToCam.lengthSq() < 1e-6) uiToCam.set(0, 0, 1);
+      uiToCam.normalize();
+      const k = arScale;
+      xrHud.position.copy(uiBase).addScaledVector(uiToCam, 0.42 * k);
+      xrHud.position.y += 0.22 * k;
+      xrHud.lookAt(camWorld);
+      xrBubble.position.copy(uiBase).addScaledVector(uiToCam, 0.15 * k);
+      xrBubble.position.y += 0.94 * k + BUBBLE_H / 2;
+      xrBubble.lookAt(camWorld);
+    }
+
+    /* ---------- Edit details pop-up (keeps the AR session running behind it) ---------- */
+    let editModalId = null;
+
+    function openEditModal(id) {
+      const t = byId(id);
+      if (!t) return;
+      editModalId = id;
+      $('em-title').value = t.title;
+      $('em-context').value = t.context || '';
+      $('em-next').value = t.nextStep || '';
+      $('em-project').value = t.project || '';
+      $('project-list').innerHTML = projects().map(p => `<option value="${esc(p)}">`).join('');
+      $('edit-modal').hidden = false;
+    }
+
+    function closeEditModal() {
+      editModalId = null;
+      $('edit-modal').hidden = true;
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    }
+
+    $('em-cancel').addEventListener('click', closeEditModal);
+    // Tapping the dimmed area outside the panel also cancels.
+    $('edit-modal').addEventListener('click', (e) => { if (e.target === $('edit-modal')) closeEditModal(); });
+    $('em-save').addEventListener('click', () => {
+      const t = byId(editModalId);
+      if (!t) { closeEditModal(); return; }
+      const title = $('em-title').value.trim();
+      if (!title) { $('em-title').focus(); showToast('A thought needs a few words.'); return; }
+      t.title = title.slice(0, 280);
+      t.context = $('em-context').value.trim();
+      t.nextStep = $('em-next').value.trim();
+      t.project = $('em-project').value.trim();
+      const id = t.id;
+      closeEditModal();
+      saveTasks();
+      // Redraw the floating card with the new details, still attached to its orb.
+      if (xrCard.visible && xrCard.userData.id === id) open3DTaskCard(id);
+      showToast('Changes saved.');
+    });
+
+    /* ---------- Selection ---------- */
+    // Sound positions: the orb or Pip in the scene (3D in a headset, gentle stereo on screens).
+    function orbWorld(id) {
+      const o = orbs.find(o => o.userData.id === id);
+      return o ? o.getWorldPosition(new THREE.Vector3()) : null;
+    }
+    function pipWorld() {
+      placementGroup.updateMatrixWorld(true);
+      const v = pipModelGroup.getWorldPosition(new THREE.Vector3());
+      v.y += 0.5 * arScale;
+      return v;
+    }
+    function soundAt(name, world) {
+      if (!world) { Sound.play(name); return; }
+      const v = world.clone().project(getViewCamera());
+      Sound.play(name, { pos: world, pan: Number.isFinite(v.x) ? v.x * 0.5 : 0 });
+    }
+
+    function selectOrb(id, sound = 'select') {
+      selectedId = id;
+      rebuildOrbit();
+      if (renderer.xr.isPresenting) open3DTaskCard(id);
+      renderArOrbitCopy();
+      soundAt(sound, orbWorld(id));
+    }
+
+    function clearSelection() {
+      selectedId = null;
+      closeXRCard();
+      rebuildOrbit();
+      renderArOrbitCopy();
+    }
+
+    function stepOrb(dir) {
+      const group = currentGroup();
+      if (!group.length) return;
+      const i = group.findIndex(t => t.id === selectedId);
+      const next = i < 0 ? (dir > 0 ? 0 : group.length - 1) : (i + dir + group.length) % group.length;
+      selectOrb(group[next].id, 'switch');
+    }
+
+    /* =====================================================================
+       Input: pointer (preview), XR controllers, screen taps and hand pinch
+       ===================================================================== */
+    const raycaster = new THREE.Raycaster();
+    raycaster.near = 0.005;
+    raycaster.far = 10;
+    const tempMatrix = new THREE.Matrix4();
+
+    // A small target marker gives feedback while the index finger is pointing at an orb.
+    const handAimMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.022, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x4ee6d6, transparent: true, opacity: 0.95 })
+    );
+    handAimMarker.visible = false;
+    scene.add(handAimMarker);
+
+    function firstInteractiveHit() {
+      // 3D panels (task card, welcome bubble, headset button bar) are drawn on top, so they win.
+      const ui = [xrCard, xrBubble, ...(xrHud.visible ? hudButtons : [])].filter(o => o.visible);
+      if (ui.length) {
+        const uiHits = raycaster.intersectObjects(ui, false);
+        if (uiHits.length) return uiHits[0];
+      }
+      const hits = raycaster.intersectObjects([...orbHits, ...starObjects.map(s => s.userData.hit)], false);
+      return hits.length ? hits[0] : null;
+    }
+
+    function handleRaycastInteractions({ allowPlacement = false } = {}) {
+      const hit = firstInteractiveHit();
+
+      if (hit && hit.object.userData.type === 'hud') {
+        const act = hit.object.userData.act;
+        if (act === 'exit') exitToHome();
+        else if (act === 'pause') { isOrbitPaused = !isOrbitPaused; renderHud(); }
+        else if (act === 'smaller') setArScale(arScale * 0.85);
+        else if (act === 'bigger') setArScale(arScale * 1.15);
+        return true;
+      }
+
+      if (hit && hit.object.userData.type === 'bubble') {
+        const uv = hit.uv;
+        if (uv && uv.y >= 0.1 && uv.y <= 0.4) {
+          xrBubble.visible = false;
+          if (xrBubble.userData.hasShow && uv.x >= 0.5) {
+            const top = orbitTasks()[0];
+            if (top) { groupIndex = 0; selectOrb(top.id); }
+          }
+        }
+        return true;
+      }
+
+      if (hit && hit.object.userData.type === 'card') {
+        const uv = hit.uv;
+        const id = xrCard.userData.id;
+        if (uv) {
+          if (uv.x >= 0.06 && uv.x <= 0.31 && uv.y >= 0.11 && uv.y <= 0.26) { markTaskComplete(id); return true; }
+          if (!headsetMode && uv.x >= 0.34 && uv.x <= 0.60 && uv.y >= 0.11 && uv.y <= 0.26) {
+            // In AR, edit in a pop-up over the camera; otherwise use the full Edit screen.
+            if (renderer.xr.isPresenting) openEditModal(id);
+            else go('details', { params: { editId: id } });
+            return true;
+          }
+          // ✕ close: the whole top-right corner counts, so it's easy to hit with a fingertip.
+          if (uv.x >= 0.78 && uv.y >= 0.72) { clearSelection(); return true; }
+        }
+        return true;
+      }
+
+      if (hit && hit.object.userData.type === 'orb') {
+        const id = hit.object.userData.id;
+        // Home (and the big stage beside any screen other than the orbit view): tapping an orb opens it.
+        if (current === 'home' || (isWide() && current !== 'ar-orbit')) { soundAt('select', orbWorld(id)); go('detail', { params: { id } }); }
+        else if (current === 'ar-orbit' && !renderer.xr.isPresenting && selectedId === id) go('detail', { params: { id } });
+        else selectOrb(id);
+        return true;
+      }
+
+      if (hit && hit.object.userData.type === 'star') {
+        go('detail', { params: { id: hit.object.userData.id } });
+        return true;
+      }
+
+      if (allowPlacement && reticle.visible) {
+        placePipAtReticle();
+        return true;
+      }
+      return false;
+    }
+
+    // 3D preview: a short press without dragging is a tap, so rotating the view never opens a thought.
+    let pointerDownAt = null;
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      pointerDownAt = { x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (!pointerDownAt || renderer.xr.isPresenting) return;
+      const moved = Math.hypot(e.clientX - pointerDownAt.x, e.clientY - pointerDownAt.y);
+      const quick = performance.now() - pointerDownAt.t < 600;
+      pointerDownAt = null;
+      if (moved > 8 || !quick) return;
+      setRayFromScreen(e.clientX, e.clientY);
+      if (!handleRaycastInteractions() && selectedId) clearSelection();
+    });
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || renderer.xr.isPresenting || e.buttons) return;
+      setRayFromScreen(e.clientX, e.clientY);
+      const hit = firstInteractiveHit();
+      renderer.domElement.style.cursor = hit ? 'pointer' : 'grab';
+      updateOrbHover(hit && hit.object.userData.type === 'orb' ? hit.object.parent : null, null);
+    });
+
+    function setRayFromScreen(x, y) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(mouse, camera);
+    }
+
+    function updateOrbHover(targetOrb, hitPoint) {
+      if (hoveredOrb && hoveredOrb !== targetOrb) hoveredOrb.userData.hovered = false;
+      hoveredOrb = targetOrb;
+      if (targetOrb) {
+        targetOrb.userData.hovered = true;
+        if (hitPoint) { handAimMarker.position.copy(hitPoint); handAimMarker.visible = true; }
+      } else {
+        handAimMarker.visible = false;
+      }
+    }
+
+    for (let i = 0; i < 2; i++) {
+      const controller = renderer.xr.getController(i);
+      scene.add(controller);
+
+      // Motion controllers (Windows Mixed Reality, Quest) get a visible pointing ray.
+      controller.addEventListener('connected', (e) => {
+        if (!e.data || e.data.targetRayMode !== 'tracked-pointer' || e.data.hand || controller.userData.ray) return;
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1.5)]),
+          new THREE.LineBasicMaterial({ color: 0x4ee6d6, transparent: true, opacity: 0.85 }));
+        controller.add(line);
+        controller.userData.ray = line;
+      });
+
+      controller.addEventListener('select', (event) => {
+        if (!renderer.xr.isPresenting) return;
+
+        // Hand pinches are handled from XR joint poses below. Ignore a
+        // runtime-generated select event for the same hand input source.
+        if (event && event.data && event.data.hand) return;
+        // A two-finger pinch (resize) also ends as screen taps; don't let it move Pip.
+        if (pinch || performance.now() - pinchEndedAt < 400) return;
+
+        if (!pipPlaced) {
+          placeFromCurrentState();
+          return;
+        }
+        tempMatrix.identity().extractRotation(controller.matrixWorld);
+        raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+        raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+        raycaster.camera = renderer.xr.getCamera();
+        // Tapping an orb or card acts on it. Tapping empty space closes an open card;
+        // otherwise, tapping a detected surface moves Pip there.
+        const canPlace = headsetMode ? useSurfaceOf(event && event.data) : !xrCard.visible;
+        if (!handleRaycastInteractions({ allowPlacement: canPlace }) && xrCard.visible) clearSelection();
+      });
+    }
+
+    // Two-finger pinch on the AR view resizes Pip and the orbit.
+    let arScale = 1;
+    // Pinch resizes Pip together with the orbit, orbs and task card, so their sizes stay
+    // relative to the astronaut at every zoom level.
+    function setArScale(s) {
+      arScale = THREE.MathUtils.clamp(s, 0.3, 3);
+      placementGroup.scale.setScalar(arScale);
+    }
+    let pinch = null;
+    let pinchEndedAt = 0;
+    const touchGap = (ts) => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+    $('app').addEventListener('touchstart', (e) => {
+      if (!renderer.xr.isPresenting || !pipPlaced || e.touches.length !== 2 || editModalId) return;
+      pinch = { gap: touchGap(e.touches), scale: arScale };
+    }, { passive: true });
+    $('app').addEventListener('touchmove', (e) => {
+      if (!pinch || e.touches.length !== 2) return;
+      setArScale(pinch.scale * touchGap(e.touches) / pinch.gap);
+    }, { passive: true });
+    $('app').addEventListener('touchend', (e) => {
+      if (pinch && e.touches.length < 2) { pinch = null; pinchEndedAt = performance.now(); }
+    }, { passive: true });
+
+    // Taps on DOM overlay controls must not also count as AR selects.
+    $('app').addEventListener('beforexrselect', (e) => {
+      if (e.target.closest('button, input, textarea, select, a, .panel, .thought-list, .modal-backdrop')) e.preventDefault();
+    });
+
+    function getJointPosition(frame, hand, jointName, referenceSpace) {
+      try {
+        const jointSpace = hand.get(jointName);
+        if (!jointSpace) return null;
+        const pose = frame.getJointPose(jointSpace, referenceSpace);
+        if (!pose) return null;
+        const p = pose.transform.position;
+        return new THREE.Vector3(p.x, p.y, p.z);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    let handNoteText = '';
+    function setHandNote(text) {
+      if (text === handNoteText) return;
+      handNoteText = text;
+      $('hand-note').textContent = text;
+    }
+
+    // A thin aqua line from each hand to what it points at, so hand rays are visible in a headset.
+    const handRays = new Map();
+    const seenHands = new Set();
+    function showHandRay(side, from, to) {
+      let line = handRays.get(side);
+      if (!line) {
+        line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+          new THREE.LineBasicMaterial({ color: 0x4ee6d6, transparent: true, opacity: 0.85, depthTest: false }));
+        line.renderOrder = 12;
+        line.frustumCulled = false;
+        scene.add(line);
+        handRays.set(side, line);
+      }
+      line.geometry.setFromPoints([from, to]);
+      line.visible = true;
+      seenHands.add(side);
+    }
+
+    const pinchingHands = [];
+    let handZoom = null; // { gap, scale } while both hands pinch
+
+    // Open, flat hand: all four fingers straight (tip close to its full length from the
+    // knuckle) and the thumb away from the index finger.
+    const FINGERS = ['index-finger', 'middle-finger', 'ring-finger', 'pinky-finger'];
+    function isFlatPalm(frame, hand, ref, thumbTip, indexTip) {
+      if (thumbTip.distanceTo(indexTip) < 0.05) return false;
+      for (const f of FINGERS) {
+        const pts = ['phalanx-proximal', 'phalanx-intermediate', 'phalanx-distal', 'tip'].map(j => getJointPosition(frame, hand, `${f}-${j}`, ref));
+        if (pts.some(p => !p)) return false;
+        const length = pts[0].distanceTo(pts[1]) + pts[1].distanceTo(pts[2]) + pts[2].distanceTo(pts[3]);
+        if (length < 1e-4 || pts[0].distanceTo(pts[3]) / length < 0.9) return false;
+      }
+      return true;
+    }
+    const PALM_HOLD_MS = 1000;   // how long the open palm is held still before Pip moves
+    const PALM_STILL_M = 0.12;   // how far the ring may drift while holding
+
+    function processHandTracking(frame) {
+      if (!frame || !renderer.xr.isPresenting) return;
+      const referenceSpace = renderer.xr.getReferenceSpace();
+      if (!referenceSpace) return;
+
+      let foundHand = false;
+      let targetOrb = null;
+      let targetPoint = null;
+      let palmProgress = 0;
+      let palmSource = null;
+
+      for (const inputSource of frame.session.inputSources) {
+        if (!inputSource.hand) continue;
+        foundHand = true;
+
+        const thumbTip = getJointPosition(frame, inputSource.hand, 'thumb-tip', referenceSpace);
+        const indexTip = getJointPosition(frame, inputSource.hand, 'index-finger-tip', referenceSpace);
+        const indexDistal = getJointPosition(frame, inputSource.hand, 'index-finger-phalanx-distal', referenceSpace);
+        if (!thumbTip || !indexTip || !indexDistal) continue;
+
+        // Point with the system hand ray where the browser provides one (HoloLens, Quest);
+        // otherwise follow the last segment of the index finger.
+        let origin = indexTip;
+        let direction = null;
+        const rayPose = inputSource.targetRaySpace ? frame.getPose(inputSource.targetRaySpace, referenceSpace) : null;
+        if (rayPose) {
+          const t = rayPose.transform;
+          origin = new THREE.Vector3(t.position.x, t.position.y, t.position.z);
+          direction = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w));
+        } else {
+          direction = indexTip.clone().sub(indexDistal);
+          if (direction.lengthSq() < 1e-6) continue;
+          direction.normalize();
+        }
+        raycaster.set(origin, direction);
+        raycaster.far = 5;
+        raycaster.camera = renderer.xr.getCamera();
+        scene.updateMatrixWorld(true);
+
+        const hit = firstInteractiveHit();
+        if (hit && !targetPoint) {
+          targetPoint = hit.point;
+          if (hit.object.userData.type === 'orb') targetOrb = hit.object.parent;
+        }
+        const surfacePoint = pointerSurface.get(inputSource);
+        showHandRay(inputSource.handedness, origin, hit ? hit.point : surfacePoint || origin.clone().addScaledVector(direction, 1.5));
+
+        // Enter threshold = 2.5 cm; release threshold = 4.5 cm.
+        // Hysteresis prevents jitter from repeatedly firing the pinch.
+        const pinchDistance = thumbTip.distanceTo(indexTip);
+        const state = handPinchStates.get(inputSource) || { pinching: false, zoomed: false, palm: null, palmUsed: false };
+        const wasPinching = state.pinching;
+        const isPinching = wasPinching ? pinchDistance < 0.045 : pinchDistance < 0.025;
+
+        // A pinch acts when it is released, like the HoloLens air-tap, on what the ray points at:
+        // an orb opens its card, and card and 3D buttons press. In a headset it never moves Pip
+        // (the open palm does that). A pinch that became part of a two-hand resize does nothing.
+        if (!isPinching && wasPinching && !state.zoomed && performance.now() - lastHandGestureAt > 450) {
+          if (!pipPlaced) {
+            placeFromCurrentState();
+            lastHandGestureAt = performance.now();
+          } else if (handleRaycastInteractions({ allowPlacement: false })) {
+            lastHandGestureAt = performance.now();
+          }
+        }
+
+        // Point and pause: aim the ray at a spot and hold an open, flat palm still for a second;
+        // the ring fills, then Pip moves there. The hand must close or drop before it can place again.
+        const flat = headsetMode && !isPinching && isFlatPalm(frame, inputSource.hand, referenceSpace, thumbTip, indexTip);
+        if (!flat) state.palmUsed = false;
+        if (flat && !state.palmUsed && surfacePoint && !hit && !xrCard.visible && !handZoom) {
+          const now = performance.now();
+          if (!state.palm || surfacePoint.distanceTo(state.palm.anchor) > PALM_STILL_M) state.palm = { since: now, anchor: surfacePoint.clone() };
+          const progress = (now - state.palm.since) / PALM_HOLD_MS;
+          if (progress >= 1) {
+            state.palm = null;
+            state.palmUsed = true;
+            if (useSurfaceOf(inputSource)) { placePipAtReticle(); lastHandGestureAt = now; }
+          } else if (progress > palmProgress) {
+            palmProgress = progress;
+            palmSource = inputSource;
+          }
+        } else {
+          state.palm = null;
+        }
+        if (!isPinching) state.zoomed = false;
+        if (isPinching) pinchingHands.push({ state, point: thumbTip.clone().add(indexTip).multiplyScalar(0.5) });
+
+        state.pinching = isPinching;
+        handPinchStates.set(inputSource, state);
+      }
+      raycaster.far = 10;
+
+      // Pinch with both hands and pull them apart or together to resize Pip with its orbit.
+      if (pinchingHands.length === 2 && pipPlaced) {
+        const gap = pinchingHands[0].point.distanceTo(pinchingHands[1].point);
+        if (!handZoom && gap > 0.03) handZoom = { gap, scale: arScale };
+        if (handZoom) {
+          pinchingHands.forEach(h => { h.state.zoomed = true; });
+          setArScale(handZoom.scale * gap / handZoom.gap);
+        }
+      } else if (handZoom) {
+        handZoom = null;
+        lastHandGestureAt = performance.now();
+      }
+      pinchingHands.length = 0;
+
+      // Show the ring under the hand that is holding its palm, filling as the hold completes.
+      if (palmSource && useSurfaceOf(palmSource)) {
+        activePointer = palmSource;
+        reticleFill.scale.setScalar(Math.max(0.05, palmProgress));
+        reticleFill.visible = true;
+      } else {
+        reticleFill.visible = false;
+      }
+
+      handRays.forEach((line, side) => { if (!seenHands.has(side)) line.visible = false; });
+      seenHands.clear();
+      if (foundHand) {
+        handTrackingSeen = true;
+        setHandNote(handZoom ? 'Hand gestures: resizing Pip — release to finish.'
+          : palmSource ? 'Hand gestures: hold your open palm still to place Pip here.'
+          : targetOrb ? 'Hand gestures: orb targeted — pinch and release to view it.'
+          : 'Hand gestures: pinch an orb to view it. Point and hold an open palm to place Pip. Pinch with both hands to resize.');
+        updateOrbHover(targetOrb, targetPoint);
+      } else if (performance.now() - xrSessionStartedAt > 1800 && !handTrackingSeen) {
+        setHandNote('Hand gestures: none detected. Tap orbs on screen or use an XR controller.');
+      }
+    }
+
+    /* =====================================================================
+       09–11 AR: permission explainer, placement, placed orbit
+       ===================================================================== */
+    function getViewCamera() {
+      return renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+    }
+
+    function showPreviewScene() {
+      placementGroup.position.set(0, 0, 0);
+      placementGroup.rotation.set(0, 0, 0);
+      placementGroup.visible = true;
+      pipPlaced = true;
+      rebuildOrbit();
+    }
+
+    function placePipInFrontOfViewer(frame = null) {
+      const referenceSpace = renderer.xr.getReferenceSpace();
+      const viewerPose = frame && referenceSpace ? frame.getViewerPose(referenceSpace) : null;
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      if (viewerPose) {
+        const t = viewerPose.transform;
+        pos.set(t.position.x, t.position.y, t.position.z);
+        quat.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
+      } else {
+        const xrCamera = renderer.xr.getCamera();
+        xrCamera.updateMatrixWorld(true);
+        xrCamera.getWorldPosition(pos);
+        xrCamera.getWorldQuaternion(quat);
+      }
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
+      dir.y = 0;
+      if (dir.lengthSq() < 0.0001) dir.set(0, 0, -1);
+      dir.normalize();
+      placementGroup.position.copy(pos).addScaledVector(dir, 0.85);
+      placementGroup.position.y = pos.y - 0.75;
+      placementGroup.rotation.set(0, Math.atan2(-dir.x, -dir.z), 0);
+      finishPlacement(pipAppeared ? 'place' : 'signature');
+    }
+
+    function placePipAtReticle() {
+      const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+      const camPos = new THREE.Vector3();
+      getViewCamera().getWorldPosition(camPos);
+      placementGroup.position.copy(pos);
+      placementGroup.rotation.set(0, Math.atan2(camPos.x - pos.x, camPos.z - pos.z), 0);
+      finishPlacement(pipAppeared ? 'place' : 'signature');
+    }
+
+    let pipAppeared = false;
+    function finishPlacement(sound) {
+      pipAppeared = true;
+      if (sound) soundAt(sound, pipWorld());
+      placementGroup.visible = true;
+      pipPlaced = true;
+      reticle.visible = false;
+      selectedId = null;
+      closeXRCard();
+      go('ar-orbit', { replace: true });
+      rebuildOrbit();
+    }
+
+    function placeFromCurrentState() {
+      if (reticle.visible) placePipAtReticle();
+      else placePipInFrontOfViewer();
+    }
+
+    let placePillState = '';
+    function updatePlacePill(force = false) {
+      const state = !hitTestSource ? 'none' : reticle.visible ? 'found' : 'looking';
+      if (state === placePillState && !force) return;
+      placePillState = state;
+      const pill = $('place-pill');
+      pill.className = 'pill' + (state === 'found' ? ' teal' : '');
+      pill.textContent = state === 'found' ? '✓ Suitable surface selected' : state === 'looking' ? 'Looking for a surface…' : 'Surface detection unavailable here';
+      $('place-here').textContent = state === 'none' ? 'Place Pip in front of me' : state === 'found' ? 'Place Pip here' : 'Place Pip in front of me';
+    }
+
+    $('place-here').addEventListener('click', () => {
+      if (renderer.xr.isPresenting) placeFromCurrentState();
+    });
+
+    $('ar-continue').addEventListener('click', async () => {
+      if (isARSupported || isVRSupported) {
+        await startAR();
+      } else {
+        showToast(window.isSecureContext
+          ? 'Room AR isn’t available in this browser, so Pip opens in 3D instead.'
+          : 'AR needs an HTTPS link, so Pip opens in 3D instead.');
+        selectedId = null;
+        welcomePending = true;
+        go('ar-orbit', { replace: true });
+      }
+    });
+    document.querySelectorAll('[data-use-2d]').forEach(b => b.addEventListener('click', () => exitToHome()));
+    // In AR this leaves the camera (ending the session reloads into this screen in 3D);
+    // in the 3D view it starts the AR flow again.
+    $('orbit-mode').addEventListener('click', () => {
+      if (xrSession || renderer.xr.isPresenting) exitToHome();
+      else go('ar-intro');
+    });
+
+    // The live AR session, kept here as well as in three.js so it can always be ended, even if
+    // the engine never reached its "presenting" state.
+    let xrSession = null;
+
+    function exitToHome() {
+      const session = xrSession || renderer.xr.getSession();
+      if (session) {
+        session.end().catch(() => restorePreviewAfterAR());
+        return; // the session 'end' handler returns to Home
+      }
+      selectedId = null;
+      go('home', { reset: true });
+      rebuildOrbit();
+    }
+
+    // Screen 14: when AR (or the 3D orbit) opens, Pip greets the viewer and says how many
+    // thoughts are orbiting. "Show me" selects the most relevant orb (a due reminder first,
+    // otherwise the first in orbit) and opens its card; "Not yet" just hides the bubble.
+    let welcomePending = false;
+    function showWelcomeBubble() {
+      const n = orbitTasks().length;
+      $('pip-bubble-copy').textContent = n
+        ? `${n} ${n === 1 ? 'thought is' : 'thoughts are'} orbiting me.`
+        : 'Nothing is orbiting me yet. Capture a thought to start.';
+      $('pip-bubble-show').hidden = !n;
+      $('pip-bubble-later').textContent = n ? 'Not yet' : 'Got it';
+      // On big screens the orbit lives in the wide stage, so the bubble goes there with it.
+      const host = isWide() ? $('wide-stage') : $('ar-stage');
+      if ($('pip-bubble').parentElement !== host) host.appendChild($('pip-bubble'));
+      $('pip-bubble').hidden = false;
+      if (!renderer.xr.isPresenting) Sound.play('welcome');
+    }
+    function hideWelcomeBubble() { $('pip-bubble').hidden = true; }
+    $('pip-bubble-later').addEventListener('click', hideWelcomeBubble);
+    $('pip-bubble-show').addEventListener('click', () => {
+      hideWelcomeBubble();
+      const first = orbitTasks()[0]; // orbitTasks() lists due reminders first
+      if (!first) return;
+      groupIndex = 0;
+      rebuildOrbit();
+      renderArOrbit();
+      selectOrb(first.id);
+    });
+
+    function renderArOrbit() {
+      if (welcomePending) { welcomePending = false; showWelcomeBubble(); }
+      const xr = renderer.xr.isPresenting;
+      // Labels follow Figma Screen 11 in both modes; Exit AR always leads back to Home.
+      SCREENS['ar-orbit'].title = 'Pip in your space';
+      SCREENS['ar-orbit'].left = ['Exit AR', () => exitToHome()];
+      $('bar-title').textContent = SCREENS['ar-orbit'].title;
+      $('bar-left').textContent = SCREENS['ar-orbit'].left[0];
+      $('ar-group-label').textContent = `All thoughts · Group ${groupIndex + 1} of ${groupCount()}`;
+      $('orbit-pause').textContent = isOrbitPaused ? '▶ Resume orbit' : 'II Pause orbit';
+      // In AR, Pip is moved by tapping a surface and resized by pinching, so there's no Reposition
+      // button there; in the 3D view it re-centres Pip.
+      $('orbit-reposition').hidden = xr;
+      $('orbit-reposition').textContent = 'Reposition Pip';
+      $('orbit-mode').textContent = xr ? 'Switch to 2D orbit' : 'Use AR';
+      if (!xr) setHandNote('Hand gestures: unavailable here. On supported devices, enable in Settings.');
+      renderArOrbitCopy();
+      rebuildOrbit();
+    }
+
+    function renderArOrbitCopy() {
+      const xr = renderer.xr.isPresenting;
+      const empty = !currentGroup().length;
+      $('ar-select-copy').textContent = empty
+        ? 'No thoughts in orbit yet. Capture one and it will appear here.'
+        : xr ? (hitTestSource ? 'Tap an orb to select. Tap a surface to move Pip. Pinch to resize.' : 'Tap any orb to select. Pinch to resize Pip.')
+          : selectedId ? 'Tap the selected orb again to open it.' : 'Tap any orb to select. Or use the buttons below.';
+    }
+
+    $('orbit-pause').addEventListener('click', () => {
+      isOrbitPaused = !isOrbitPaused;
+      $('orbit-pause').textContent = isOrbitPaused ? '▶ Resume orbit' : 'II Pause orbit';
+    });
+    $('orbit-reposition').addEventListener('click', () => fitCamera());
+    $('orb-prev').addEventListener('click', () => stepOrb(-1));
+    $('orb-next').addEventListener('click', () => stepOrb(1));
+
+    async function checkXR() {
+      if ('xr' in navigator) {
+        try { isARSupported = await navigator.xr.isSessionSupported('immersive-ar'); } catch (e) { isARSupported = false; }
+        if (!isARSupported) {
+          try { isVRSupported = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) { isVRSupported = false; }
+        }
+      }
+      const xrAvailable = isARSupported || isVRSupported;
+      $('ar-intro-note').textContent = isARSupported
+        ? 'Permission is requested next by your browser, not on this screen.'
+        : isVRSupported
+          ? 'This headset opens Pip in its immersive mode. On HoloLens it appears in your room.'
+        : 'Room AR isn’t available in this browser. It needs Chrome on an ARCore Android phone or a Quest headset.';
+      $('ar-continue').textContent = isARSupported ? 'Continue to camera permission' : isVRSupported ? 'Open in mixed reality' : 'Open 3D orbit instead';
+    }
+
+    let xrStarting = false;
+    let pendingAutoPlacement = false;
+    let useLocalFloor = false;
+
+    // Headsets: point a hand ray or controller at the floor or a table to see where Pip would
+    // stand (the ring). Uses surface detection along the ray where the browser offers it;
+    // otherwise the floor (floor-level tracking, or an estimate from head height). Only
+    // upward-facing surfaces count, so Pip never lands on a wall.
+    const pointerHitSources = new Map();   // XRInputSource → XRHitTestSource | 'pending' | 'none'
+    const pointerSurface = new Map();      // XRInputSource → THREE.Vector3 | null
+    let activePointer = null;
+    let floorY = null;
+    const pq = new THREE.Quaternion(), pUp = new THREE.Vector3(), pDir = new THREE.Vector3();
+
+    function updateHeadsetPointerSurfaces(frame) {
+      const session = frame.session;
+      const ref = renderer.xr.getReferenceSpace();
+      if (!ref) return;
+      if (floorY === null) {
+        const vp = frame.getViewerPose(ref);
+        if (vp) floorY = useLocalFloor ? 0 : vp.transform.position.y - 1.55;
+      }
+      let best = null;
+      for (const src of session.inputSources) {
+        if (!src.targetRaySpace || src.targetRayMode === 'screen' || src.targetRayMode === 'gaze') continue;
+        if (!pointerHitSources.has(src)) {
+          pointerHitSources.set(src, 'pending');
+          if (session.requestHitTestSource) {
+            session.requestHitTestSource({ space: src.targetRaySpace })
+              .then(h => pointerHitSources.set(src, h))
+              .catch(() => pointerHitSources.set(src, 'none'));
+          } else {
+            pointerHitSources.set(src, 'none');
+          }
+        }
+        let point = null;
+        const hs = pointerHitSources.get(src);
+        if (hs && typeof hs === 'object') {
+          const results = frame.getHitTestResults(hs);
+          const pose = results.length ? results[0].getPose(ref) : null;
+          if (pose) {
+            const o = pose.transform.orientation;
+            pq.set(o.x, o.y, o.z, o.w);
+            pUp.set(0, 1, 0).applyQuaternion(pq);
+            if (pUp.y > 0.7) point = new THREE.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+          }
+        }
+        // No detected surface (HoloLens often returns none): use the floor where the ray meets it,
+        // otherwise a spot 1.2 m along the ray, so point-and-pinch always has somewhere to put Pip.
+        if (!point) {
+          const rp = frame.getPose(src.targetRaySpace, ref);
+          if (rp) {
+            const t = rp.transform;
+            pq.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
+            pDir.set(0, 0, -1).applyQuaternion(pq);
+            if (floorY !== null && pDir.y < -0.05) {
+              const dist = (floorY - t.position.y) / pDir.y;
+              if (dist > 0 && dist < 6) point = new THREE.Vector3(t.position.x + pDir.x * dist, floorY, t.position.z + pDir.z * dist);
+            }
+            if (!point) point = new THREE.Vector3(t.position.x, t.position.y, t.position.z).addScaledVector(pDir, 1.2);
+          }
+        }
+        pointerSurface.set(src, point);
+        if (point && (!best || src === activePointer || src.handedness === 'right')) best = { src, point };
+      }
+      const wasVisible = reticle.visible;
+      if (best && !xrCard.visible) {
+        activePointer = best.src;
+        reticle.matrix.makeTranslation(best.point.x, best.point.y, best.point.z);
+        reticle.visible = true;
+        if (!wasVisible && performance.now() - reticleLostAt > 1500) soundAt('scan', best.point);
+      } else {
+        if (wasVisible) reticleLostAt = performance.now();
+        reticle.visible = false;
+      }
+    }
+
+    // Before acting on a headset tap/pinch: aim the ring at that hand or controller's surface point.
+    function useSurfaceOf(src) {
+      const point = src && pointerSurface.get(src);
+      if (point && !xrCard.visible) {
+        reticle.matrix.makeTranslation(point.x, point.y, point.z);
+        reticle.visible = true;
+        return true;
+      }
+      reticle.visible = false;
+      return false;
+    }
+    let reticleLostAt = 0;
+    async function startAR() {
+      if (xrStarting) return; // ignore a double tap while the camera is opening
+      xrStarting = true;
+      // Hand tracking and hit-test are optional: the AR session must still start on
+      // devices that support AR but expose neither.
+      const sessionInit = {
+        requiredFeatures: [],
+        optionalFeatures: ['dom-overlay', 'hand-tracking', 'hit-test', 'local-floor'],
+        domOverlay: { root: $('app') }
+      };
+      // Done synchronously, before anything is awaited, so the canvas is full-screen and on the
+      // page when the browser opens the camera.
+      useFullScreenCanvas();
+      let session = null;
+      try {
+        // Make sure nothing from the previous AR visit is still attached before opening a new one.
+        const stale = xrSession || renderer.xr.getSession();
+        if (stale) { try { await stale.end(); } catch (e) {} }
+        hitTestSource = null;
+
+        const mode = isARSupported ? 'immersive-ar' : 'immersive-vr';
+        if (mode === 'immersive-vr') {
+          sessionInit.optionalFeatures = ['hand-tracking', 'local-floor', 'hit-test'];
+          delete sessionInit.domOverlay;
+        }
+        session = await navigator.xr.requestSession(mode, sessionInit);
+        xrSession = session;
+        // Registered straight away, so ending the session always brings back the 2D app,
+        // even if a later setup step fails.
+        session.addEventListener('end', restorePreviewAfterAR, { once: true });
+        // Hide the space backdrop before the camera starts so the room shows through every time.
+        document.documentElement.classList.add('in-xr');
+        document.body.classList.add('in-xr');
+        // Render AR at the screen's native resolution where the browser allows it (capped at 3×).
+        let nativeScale = 0;
+        try { nativeScale = XRWebGLLayer.getNativeFramebufferScaleFactor(session); } catch (e) {}
+        renderer.xr.setFramebufferScaleFactor(Math.min(3, Math.max(1, nativeScale || 1)));
+        // No 2D overlay (e.g. HoloLens): controls and the welcome become 3D panels.
+        headsetMode = !session.domOverlayState;
+        // Headsets: floor-level space, so pointing at the floor can place Pip even without surface detection.
+        useLocalFloor = false;
+        if (headsetMode) {
+          try { await session.requestReferenceSpace('local-floor'); useLocalFloor = true; } catch (e) {}
+        }
+        renderer.xr.setReferenceSpaceType(useLocalFloor ? 'local-floor' : 'local');
+        await renderer.xr.setSession(session);
+        additiveDisplay = session.environmentBlendMode === 'additive';
+        Sound.setSpatial(headsetMode);
+        // First-deployment lighting on Pip in the camera view (the page reloads after AR).
+        rimLight.color.set(0xe879f9);
+        rimLight.intensity = 1.4;
+
+        selectedId = null;
+        pipPlaced = false;
+        placementGroup.visible = false;
+        setArScale(1);
+        handTrackingSeen = false;
+        xrSessionStartedAt = performance.now();
+        setHandNote('Hand gestures: looking for hands… You can also tap orbs on screen.');
+
+        // Pip appears about 85 cm in front of the viewer on the first camera frame. Where the
+        // browser supports surface detection, tapping a table or floor then moves Pip there.
+        hitTestSource = null;
+        pendingAutoPlacement = true;
+        try {
+          if (headsetMode) throw new Error('headsets place Pip by pointing');
+          const viewerSpace = await session.requestReferenceSpace('viewer');
+          hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+        } catch (e) {
+          hitTestSource = null; // No surface detection here; Pip stays in front of the viewer.
+        }
+
+        xrStarting = false;
+        if (headsetMode) { headsetWelcomePending = true; xrHud.visible = true; renderHud(); }
+        else welcomePending = true;
+        go('ar-orbit', { replace: true });
+      } catch (err) {
+        xrStarting = false;
+        // If the camera session opened but setup failed, close it so the camera doesn't stay on.
+        if (session) { try { await session.end(); } catch (e) {} }
+        xrSession = null;
+        document.documentElement.classList.remove('in-xr');
+        document.body.classList.remove('in-xr');
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        attachStage();
+        console.error('WebXR session failed:', err);
+        showToast('Could not start AR: ' + (err && err.message ? err.message : 'this device may not support immersive AR.'));
+      }
+    }
+
+    // Some AR browsers leave their live camera layer on the page after the session ends. A clean
+    // reload is the one reliable way back to a non-camera page (and lets AR open again next
+    // time). Thoughts and settings are in localStorage, so nothing is lost; after the reload the
+    // app opens on the 3D "Pip in your space" screen (Figma Screen 11).
+    const AFTER_AR_KEY = 'pip_after_ar';
+    let reloadingAfterAR = false;
+
+    function restorePreviewAfterAR() {
+      if (reloadingAfterAR) return;
+      reloadingAfterAR = true;
+      xrSession = null;
+      try { sessionStorage.setItem(AFTER_AR_KEY, '1'); } catch (e) {}
+      location.reload();
+    }
+
+    /* =====================================================================
+       Reminders: real browser notifications when allowed, plus in-app resurfacing.
+       This only runs while the page is open; there is no background service.
+       ===================================================================== */
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+
+    function checkDueReminders() {
+      const now = Date.now();
+      const fired = [];
+      tasks.forEach(t => {
+        if (!t.completed && !t.archived && t.remindAt && !t.notified && t.remindAt <= now) {
+          t.notified = true;
+          fired.push(t);
+        }
+      });
+      if (!fired.length) return;
+      // Slight delay so the nudge never lands on top of another sound (e.g. the park sound).
+      setTimeout(() => Sound.play('reminder'), 700);
+      groupIndex = 0;
+      saveTasks();
+      pipAlertUntil = performance.now() + 4000;
+      const t = fired[0];
+      showToast(`⏰ Pip is back with “${headline(t)}”${t.nextStep ? ' — next: ' + t.nextStep : ''}`, {
+        label: 'Open',
+        run: () => { if (!renderer.xr.isPresenting) go('detail', { params: { id: t.id } }); }
+      });
+      if ('Notification' in window && Notification.permission === 'granted') {
+        fired.forEach(task => {
+          try {
+            new Notification('Pip is back with a thought', {
+              body: headline(task) + (task.nextStep ? `\nSmallest next action: ${task.nextStep}` : ''),
+              tag: 'pip-' + task.id
+            });
+          } catch (e) {}
+        });
+      }
+    }
+
+    function refreshAll() {
+      const due = tasks.filter(isDue).length;
+      document.title = (due ? `(${due}) ` : '') + "Pip's Thought Orbit";
+      rebuildOrbit();
+      buildConstellation();
+      if (current !== 'details' && current !== 'revisit' && current !== 'capture' && current !== 'voice') renderScreen();
+    }
+
+    /* =====================================================================
+       Render loop
+       ===================================================================== */
+    const clock = new THREE.Clock();
+    const listenerPos = new THREE.Vector3(), listenerFwd = new THREE.Vector3(), listenerUp = new THREE.Vector3();
+    const listenerQuat = new THREE.Quaternion();
+    const camWorld = new THREE.Vector3();
+
+    renderer.setAnimationLoop((timestamp, frame) => {
+      const delta = Math.min(clock.getDelta(), 0.1);
+      const t = clock.elapsedTime;
+      const xr = renderer.xr.isPresenting;
+      if (!xr && !renderer.domElement.isConnected) return;
+
+      // Place Pip in front of the viewer once the first live camera frame (with a current pose) arrives.
+      if (frame && xr && pendingAutoPlacement) {
+        pendingAutoPlacement = false;
+        placePipInFrontOfViewer(frame);
+      }
+      if (xr && headsetMode) {
+        const xc = renderer.xr.getCamera();
+        xc.getWorldPosition(listenerPos);
+        xc.getWorldQuaternion(listenerQuat);
+        Sound.setListener(listenerPos, listenerFwd.set(0, 0, -1).applyQuaternion(listenerQuat), listenerUp.set(0, 1, 0).applyQuaternion(listenerQuat));
+      }
+      if (xr && headsetMode && pipPlaced) {
+        if (headsetWelcomePending) { headsetWelcomePending = false; showXRBubble(); }
+        placeHeadsetUi();
+      }
+      // Surface detection keeps running, so a tap on a table or floor can move Pip there.
+      if (frame && hitTestSource) {
+        const results = frame.getHitTestResults(hitTestSource);
+        const pose = results.length ? results[0].getPose(renderer.xr.getReferenceSpace()) : null;
+        const wasVisible = reticle.visible;
+        reticle.visible = !!pose && !xrCard.visible;
+        if (reticle.visible && !wasVisible && performance.now() - reticleLostAt > 1500) {
+          soundAt('scan', new THREE.Vector3().setFromMatrixPosition(reticle.matrix));
+        }
+        if (!reticle.visible && wasVisible) reticleLostAt = performance.now();
+        if (pose) reticle.matrix.fromArray(pose.transform.matrix);
+      }
+
+      if (pipPlaced) {
+        const cardOpen = xr && xrCard.visible;
+        if (!isOrbitPaused && !cardOpen) orbitGroup.rotation.y += delta * 0.3;
+        orbs.forEach(orb => {
+          const pulse = orb.userData.due ? 1 + 0.1 * Math.sin(t * 5) : 1;
+          const target = (orb.userData.baseScale || 1) * (orb.userData.hovered ? 1.15 : 1) * pulse;
+          orb.scale.setScalar(THREE.MathUtils.lerp(orb.scale.x, target, 0.2));
+          if (cardOpen && orb.userData.id === selectedId) return;
+          orb.position.y = orb.userData.basePos.y + Math.sin(t * 1.3 + orb.userData.phase) * 0.025;
+        });
+        starObjects.forEach(star => star.scale.setScalar(0.85 + 0.25 * Math.sin(t * 2 + star.userData.phase)));
+
+        // Keep the card beside its orb and clear of Pip as the viewer moves or pinches.
+        if (xrCard.visible) {
+          positionXRCard();
+          getViewCamera().getWorldPosition(camWorld);
+          xrCard.lookAt(camWorld);
+        }
+
+        // Pip bobs gently, and hops when a reminder resurfaces.
+        const alert = performance.now() < pipAlertUntil;
+        pipModelGroup.position.y = Math.sin(timestamp * 0.002) * 0.03 + (alert ? Math.abs(Math.sin(t * 8)) * 0.08 : 0);
+        pipModelGroup.rotation.y = alert ? Math.sin(t * 6) * 0.3 : 0;
+        if (avatarSprite.visible) {
+          getViewCamera().getWorldPosition(camWorld);
+          pipModelGroup.worldToLocal(camWorld);
+          avatarSprite.rotation.y = Math.atan2(camWorld.x - avatarSprite.position.x, camWorld.z - avatarSprite.position.z);
+        }
+        const tip = activePipMesh.userData.antennaTip;
+        if (tip) tip.material.color.set(tasks.some(isDue) ? 0xfbbf24 : 0xff7edb);
+      }
+
+      if (frame && xr && headsetMode) updateHeadsetPointerSurfaces(frame);
+      if (frame && xr) processHandTracking(frame);
+
+      if (!xr) controls.update();
+      renderer.render(scene, camera);
+    });
+
+    /* =====================================================================
+       Start
+       ===================================================================== */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && editModalId) closeEditModal();
+      else if (e.key === 'Escape' && selectedId) clearSelection();
+    });
+
+    loadSavedTasks();
+    applyAvatar();
+    showPreviewScene();
+    buildConstellation();
+    showScreen('home', {});
+    // Coming back from AR: open the 3D "Pip in your space" screen (Figma Screen 11), Home behind it.
+    let afterAR = false;
+    try { afterAR = sessionStorage.getItem(AFTER_AR_KEY) === '1'; sessionStorage.removeItem(AFTER_AR_KEY); } catch (e) {}
+    if (afterAR) go('ar-orbit');
+    else showBrief();
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch (e) {}
+    artReady.then(() => rebuildOrbit());
+    checkXR();
+    checkDueReminders();
+    setInterval(checkDueReminders, REMIND_CHECK_MS);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDueReminders(); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="icon" href="data:," />
+    <title>Pip Focus</title>
+    <style>
+      :root {
+        --bg: #0f0d1f;
+        --panel: rgba(26, 19, 51, 0.82);
+        --line: rgba(183, 148, 246, 0.45);
+        --text: #f5f4ff;
+        --muted: #c4b5fd;
+        --violet: #8b5cf6;
+        --fuchsia: #d946ef;
+        --teal: #00d1c1;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: Montserrat, system-ui, -apple-system, Segoe UI, sans-serif; }
+      #scene-container { position: fixed; inset: 0; }
+      #home {
+        position: fixed; left: 16px; top: 16px; width: min(380px, calc(100vw - 32px));
+        padding: 22px; border-radius: 24px; background: var(--panel);
+        border: 1px solid var(--line); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        display: flex; flex-direction: column; gap: 14px; z-index: 2;
+      }
+      #home[hidden], body.focusing #home { display: none; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+      h1 { margin: 0; font-size: 26px; line-height: 1.15; }
+      p { margin: 0; color: #e9e7ff; font-size: 14px; line-height: 1.45; }
+      label { font-size: 13px; font-weight: 600; color: var(--muted); }
+      .capture { display: flex; gap: 8px; }
+      input {
+        flex: 1; min-width: 0; padding: 12px 14px; border-radius: 14px; font: inherit; font-size: 15px;
+        color: var(--text); background: rgba(15, 13, 31, 0.7); border: 1px solid var(--line); outline: none;
+      }
+      input:focus { border-color: var(--teal); }
+      button { font: inherit; font-weight: 700; border: 0; border-radius: 999px; cursor: pointer; }
+      #park { padding: 0 18px; color: var(--text); background: linear-gradient(135deg, var(--violet), var(--fuchsia)); }
+      #enter { padding: 14px; font-size: 16px; color: #0f0d1f; background: var(--teal); }
+      #enter:disabled { opacity: 0.45; cursor: default; }
+      .stats { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+      .stats b { color: var(--text); }
+      #note { font-size: 12px; color: var(--muted); }
+      .how { font-size: 12px; color: var(--muted); line-height: 1.6; padding-left: 16px; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="scene-container"></div>
+    <section id="home" aria-label="Pip">
+      <div class="eyebrow">Thought Orbit + Focus Mode</div>
+      <h1>Pip's Thought Orbit</h1>
+      <p>You don't have to remember everything. Park a thought, then bring one into focus with Pip.</p>
+      <label for="thought">Offload an intention</label>
+      <form class="capture" id="capture">
+        <input id="thought" autocomplete="off" placeholder="e.g. Sketch the onboarding flow" />
+        <button id="park" type="submit">Park</button>
+      </form>
+      <div class="stats"><span><b id="active-count">0</b> orbiting</span><span><b id="done-count">0</b> stars in constellation</span></div>
+      <button id="enter" type="button">Enter Pip's space</button>
+      <div id="note">Checking for mixed reality...</div>
+      <ul class="how">
+        <li>Pinch an orb to view it.</li>
+        <li>Grab an orb and drop it in the glowing ring to focus on it.</li>
+        <li>Or open its card and choose Focus (also with a mouse).</li>
+        <li>Point, then hold up an open palm (like "stop") to place Pip.</li>
+      </ul>
+    </section>
+    <script type="module" src="/src/index.js"></script>
+  </body>
+</html>

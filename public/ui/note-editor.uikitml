@@ -1,0 +1,149 @@
+<!--
+  Text editor for stickies and sub-tasks, with its own spatial keyboard so typing works with
+  any pointer (controller ray, hand pinch, or mouse). A physical keyboard also types into it.
+  Authored at 10x, placed at scale 0.1 in front of the board's canvas.
+-->
+<style>
+  .editor {
+    flex-direction: column;
+    width: 660px;
+    gap: 12px;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-top: 20px;
+    padding-bottom: 22px;
+    background-color: #160f2e;
+    border-color: #b794f6;
+    border-width: 2px;
+    border-radius: 30px;
+  }
+  .top {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .heading {
+    color: #e9e7ff;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .count {
+    color: #8b7fd6;
+    font-size: 17px;
+  }
+  .field {
+    min-height: 88px;
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    border-radius: 18px;
+    background-color: #f6f3ff;
+  }
+  .field-text {
+    color: #1f1838;
+    font-size: 26px;
+    line-height: 1.3;
+  }
+  .hint {
+    color: #a99ee6;
+    font-size: 17px;
+  }
+  .keys {
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+  .row {
+    flex-direction: row;
+    gap: 6px;
+  }
+  .key {
+    width: 54px;
+    height: 54px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    background-color: #2a2150;
+    cursor: pointer;
+  }
+  .wide {
+    width: 114px;
+    height: 54px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    background-color: #3a2d6b;
+    cursor: pointer;
+  }
+  .space {
+    width: 294px;
+    height: 54px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    background-color: #2a2150;
+    cursor: pointer;
+  }
+  .key-label {
+    color: #f5f4ff;
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .btn {
+    height: 60px;
+    padding-left: 28px;
+    padding-right: 28px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 30px;
+    background-color: #2a2150;
+    border-color: #8b7fd6;
+    border-width: 2px;
+    cursor: pointer;
+  }
+  .save {
+    height: 60px;
+    padding-left: 32px;
+    padding-right: 32px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 30px;
+    background-color: #00d1c1;
+    cursor: pointer;
+  }
+  .btn-label {
+    color: #f5f4ff;
+    font-size: 21px;
+    font-weight: 700;
+  }
+  .save-label {
+    color: #0f0d1f;
+    font-size: 21px;
+    font-weight: 700;
+  }
+</style>
+<div class="editor">
+  <div class="top">
+    <span id="editor-heading" class="heading">New sticky</span>
+    <span id="editor-count" class="count">0 / 120</span>
+  </div>
+  <div class="field"><span id="editor-text" class="field-text">|</span></div>
+  <span id="editor-hint" class="hint">Type with the keys below, or a keyboard.</span>
+  <div class="keys">
+    <div class="row"><div id="key-q" class="key"><span class="key-label">q</span></div><div id="key-w" class="key"><span class="key-label">w</span></div><div id="key-e" class="key"><span class="key-label">e</span></div><div id="key-r" class="key"><span class="key-label">r</span></div><div id="key-t" class="key"><span class="key-label">t</span></div><div id="key-y" class="key"><span class="key-label">y</span></div><div id="key-u" class="key"><span class="key-label">u</span></div><div id="key-i" class="key"><span class="key-label">i</span></div><div id="key-o" class="key"><span class="key-label">o</span></div><div id="key-p" class="key"><span class="key-label">p</span></div></div>
+    <div class="row"><div id="key-a" class="key"><span class="key-label">a</span></div><div id="key-s" class="key"><span class="key-label">s</span></div><div id="key-d" class="key"><span class="key-label">d</span></div><div id="key-f" class="key"><span class="key-label">f</span></div><div id="key-g" class="key"><span class="key-label">g</span></div><div id="key-h" class="key"><span class="key-label">h</span></div><div id="key-j" class="key"><span class="key-label">j</span></div><div id="key-k" class="key"><span class="key-label">k</span></div><div id="key-l" class="key"><span class="key-label">l</span></div></div>
+    <div class="row"><div id="key-z" class="key"><span class="key-label">z</span></div><div id="key-x" class="key"><span class="key-label">x</span></div><div id="key-c" class="key"><span class="key-label">c</span></div><div id="key-v" class="key"><span class="key-label">v</span></div><div id="key-b" class="key"><span class="key-label">b</span></div><div id="key-n" class="key"><span class="key-label">n</span></div><div id="key-m" class="key"><span class="key-label">m</span></div><div id="key-back" class="wide"><span class="key-label">Del</span></div></div>
+    <div class="row"><div id="key-comma" class="key"><span class="key-label">,</span></div><div id="key-period" class="key"><span class="key-label">.</span></div><div id="key-space" class="space"><span class="key-label">space</span></div><div id="key-dash" class="key"><span class="key-label">-</span></div><div id="key-question" class="key"><span class="key-label">?</span></div></div>
+  </div>
+  <div class="actions">
+    <div id="editor-cancel" class="btn"><span id="editor-cancel-label" class="btn-label">Cancel</span></div>
+    <div id="editor-save" class="save"><span id="editor-save-label" class="save-label">Save</span></div>
+  </div>
+</div>

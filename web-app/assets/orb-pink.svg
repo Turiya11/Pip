@@ -1,0 +1,20 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="108" height="108" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Orb" filter="url(#filter0_d_0_136)">
+<circle cx="54" cy="54" r="26" fill="url(#paint0_linear_0_136)"/>
+</g>
+<defs>
+<filter id="filter0_d_0_136" x="0" y="0" width="108" height="108" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="14"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 0.494118 0 0 0 0 0.858824 0 0 0 0.65 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_136"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_136" result="shape"/>
+</filter>
+<linearGradient id="paint0_linear_0_136" x1="28" y1="54" x2="80" y2="54" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF7EDB"/>
+<stop offset="1" stop-color="#B794F6"/>
+</linearGradient>
+</defs>
+</svg>

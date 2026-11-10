@@ -1,0 +1,48 @@
+<!--
+  Actions for the selected sticky or sub-task, shown just below it on the board.
+  Authored at 10x, placed at scale 0.1. Buttons are shown or hidden per item type.
+-->
+<style>
+  .strip {
+    flex-direction: row;
+    gap: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    background-color: #1a1333;
+    border-color: #b794f6;
+    border-width: 2px;
+    border-radius: 34px;
+  }
+  .act {
+    height: 52px;
+    padding-left: 18px;
+    padding-right: 18px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 26px;
+    background-color: #2a2150;
+    cursor: pointer;
+  }
+  .act-label {
+    color: #f5f4ff;
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .primary {
+    background-color: #8b5cf6;
+  }
+  .danger {
+    background-color: #4a1f3d;
+  }
+</style>
+<div class="strip">
+  <div id="act-done" class="act primary"><span id="act-done-label" class="act-label">Done</span></div>
+  <div id="act-edit" class="act"><span class="act-label">Edit</span></div>
+  <div id="act-colour" class="act"><span class="act-label">Colour</span></div>
+  <div id="act-link" class="act"><span id="act-link-label" class="act-label">Link</span></div>
+  <div id="act-move" class="act"><span class="act-label">Move</span></div>
+  <div id="act-task" class="act primary"><span class="act-label">Make task</span></div>
+  <div id="act-delete" class="act danger"><span id="act-delete-label" class="act-label">Delete</span></div>
+</div>

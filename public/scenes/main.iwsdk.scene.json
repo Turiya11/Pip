@@ -1,0 +1,173 @@
+{
+  "version": "iwsdk.scene.v1",
+  "units": "meters",
+  "components": {
+    "com.iwsdk.components.IBLGradient": {
+      "sky": [
+        0.92,
+        0.9,
+        1,
+        1
+      ],
+      "equator": [
+        0.78,
+        0.74,
+        0.9,
+        1
+      ],
+      "ground": [
+        0.42,
+        0.38,
+        0.5,
+        1
+      ],
+      "intensity": 1
+    }
+  },
+  "environment": {
+    "toneMapping": "aces",
+    "exposure": 1,
+    "shadows": false
+  },
+  "resources": {},
+  "nodes": [
+    {
+      "id": "pip-root",
+      "name": "Pip",
+      "transform": {
+        "position": [
+          0,
+          0.85,
+          -1.2
+        ]
+      },
+      "children": [
+        {
+          "id": "pip-model",
+          "name": "Pip Procedural",
+          "content": {
+            "type": "asset",
+            "asset": "pip-procedural"
+          }
+        },
+        {
+          "id": "task-card",
+          "name": "Task Card",
+          "content": {
+            "type": "asset",
+            "asset": "task-card"
+          },
+          "transform": {
+            "position": [
+              0.6,
+              0.95,
+              0
+            ],
+            "scale": 0.1
+          },
+          "components": {
+            "RayInteractable": {}
+          }
+        },
+        {
+          "id": "pip-hud",
+          "name": "Pip Controls",
+          "content": {
+            "type": "asset",
+            "asset": "pip-hud"
+          },
+          "transform": {
+            "position": [
+              0,
+              0.2,
+              0.42
+            ],
+            "scale": 0.1
+          },
+          "components": {
+            "RayInteractable": {}
+          }
+        },
+        {
+          "id": "welcome-bubble",
+          "name": "Welcome Bubble",
+          "content": {
+            "type": "asset",
+            "asset": "welcome-bubble"
+          },
+          "transform": {
+            "position": [
+              0,
+              1.0,
+              0.05
+            ],
+            "scale": 0.1
+          },
+          "components": {
+            "RayInteractable": {}
+          }
+        }
+      ]
+    },
+    {
+      "id": "focus-board",
+      "name": "Focus Board",
+      "content": {
+        "type": "asset",
+        "asset": "focus-board"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.4,
+          -1.0
+        ],
+        "scale": 0.1
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "item-actions",
+      "name": "Item Actions",
+      "content": {
+        "type": "asset",
+        "asset": "item-actions"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.2,
+          -0.9
+        ],
+        "scale": 0.1
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "note-editor",
+      "name": "Note Editor",
+      "content": {
+        "type": "asset",
+        "asset": "note-editor"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.2,
+          -0.9
+        ],
+        "scale": 0.1
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    }
+  ],
+  "authoring": {
+    "views": []
+  }
+}

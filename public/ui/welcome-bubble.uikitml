@@ -1,0 +1,66 @@
+<!--
+  Pip's greeting above its helmet when the space opens. Authored at 10x, placed at scale 0.1.
+-->
+<style>
+  .bubble {
+    flex-direction: column;
+    width: 360px;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    gap: 8px;
+    background-color: #1a1333;
+    border-color: #b794f6;
+    border-width: 2px;
+    border-radius: 26px;
+  }
+  .hello {
+    color: #f5f4ff;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .copy {
+    color: #e9e7ff;
+    font-size: 19px;
+  }
+  .row {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .pill {
+    flex-grow: 1;
+    height: 50px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 25px;
+    cursor: pointer;
+  }
+  .later {
+    background-color: #2a2150;
+    border-color: #6d5bd0;
+    border-width: 2px;
+  }
+  .show {
+    background-color: #00d1c1;
+  }
+  .later-label {
+    color: #f5f4ff;
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .show-label {
+    color: #0f0d1f;
+    font-size: 19px;
+    font-weight: 700;
+  }
+</style>
+<div class="bubble">
+  <span class="hello">Welcome back!</span>
+  <span id="bubble-copy" class="copy">Thoughts are orbiting me.</span>
+  <div class="row">
+    <div id="bubble-later" class="pill later"><span id="bubble-later-label" class="later-label">Not yet</span></div>
+    <div id="bubble-show" class="pill show"><span class="show-label">Show me</span></div>
+  </div>
+</div>
