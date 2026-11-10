@@ -6,7 +6,7 @@
 
 **You don't have to remember everything.** Pip's Thought Orbit is a mixed reality focus companion for Meta Quest. Park a thought and it becomes a glowing orb circling Pip. When you're ready, bring one thought into focus and work on it on a glass board in front of you.
 
-Built with Meta's [Immersive Web SDK](https://github.com/meta-quest/immersive-web-sdk) (WebXR, hand tracking, passthrough AR) as a Semester 7 AR/VR project at MIT-WPU.
+Built with Meta's [Immersive Web SDK](https://github.com/meta-quest/immersive-web-sdk) (WebXR, hand tracking, passthrough AR) as a Semester 7 AR/VR project.
 
 ## What it does
 
